@@ -1,0 +1,30 @@
+package com.futsal.tournament.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class TournamentResponse {
+
+    private Long id;
+    private String title;
+    private LocalDate tournamentDate;
+    private String location;
+    private String playerType;
+    private String gender;
+    private String description;
+    private int viewCount;
+    private String originalLink;
+    private List<String> posterUrls; // 포스터 URL 목록
+    private String recruitmentStatus; // OPEN, CLOSED
+    private Long registeredById;
+    private String registeredByName;
+    private LocalDateTime createdAt;
+}
