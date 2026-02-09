@@ -1,0 +1,27 @@
+.env
+.env.*
+
+# Gradle / build outputs
+.gradle/
+build/
+target/
+out/
+
+# IntelliJ / IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+.vscode/
+
+# Logs / temp
+*.log
+logs/
+tmp/
+
+# OS
+.DS_Store
+Thumbs.db
