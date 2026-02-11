@@ -3,6 +3,7 @@ package com.futsal.auth.controller;
 import com.futsal.auth.jwt.JwtTokenProvider;
 import com.futsal.auth.service.RefreshTokenService;
 import com.futsal.user.domain.User;
+import com.futsal.user.dto.UserUpdateRequest;
 import com.futsal.user.repository.UserRepository;
 import com.futsal.user.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -179,7 +180,7 @@ public class AuthController {
     @PutMapping("/profile")
     public ResponseEntity<Map<String, Object>> updateProfile(
             @AuthenticationPrincipal User user,
-            @RequestBody com.futsal.user.domain.UserUpdateRequest request
+            @RequestBody UserUpdateRequest request
     ) {
         if (user == null) {
             return ResponseEntity.status(401).build();

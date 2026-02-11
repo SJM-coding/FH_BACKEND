@@ -17,6 +17,7 @@ import com.futsal.team.dto.TeamMemberPositionRequest;
 import com.futsal.team.dto.TeamMemberResponse;
 import com.futsal.team.dto.TeamResponse;
 import com.futsal.team.dto.TeamUpdateRequest;
+import com.futsal.team.dto.TacticsPlayerPosition;
 import com.futsal.team.dto.TacticsSaveRequest;
 import com.futsal.team.dto.TacticsResponse;
 import com.futsal.team.repository.TeamMemberRepository;

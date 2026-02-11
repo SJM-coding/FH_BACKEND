@@ -1,8 +1,6 @@
 package com.futsal.team.domain;
 
-import com.futsal.team.domain.PlayerPosition;
-import com.futsal.team.domain.TeamMemberRole;
-import com.futsal.team.domain.TeamMemberStatus;
+import com.futsal.user.domain.User;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

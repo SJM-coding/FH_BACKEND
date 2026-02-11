@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.futsal.user.domain.User;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;

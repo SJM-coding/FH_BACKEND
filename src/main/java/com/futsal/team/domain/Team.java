@@ -1,5 +1,6 @@
 package com.futsal.team.domain;
 
+import com.futsal.user.domain.User;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
