@@ -1,0 +1,294 @@
+package com.futsal.tournament.service;
+
+import com.futsal.team.domain.Team;
+import com.futsal.tournament.domain.*;
+import com.futsal.tournament.repository.TournamentGroupRepository;
+import com.futsal.tournament.repository.TournamentMatchRepository;
+import com.futsal.tournament.repository.TournamentRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.*;
+
+/**
+ * 대진표 생성 서비스
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class BracketGeneratorService {
+
+    private final TournamentRepository tournamentRepository;
+    private final TournamentMatchRepository matchRepository;
+    private final TournamentGroupRepository groupRepository;
+
+    /**
+     * 대진표 생성 (참가 팀 기반)
+     */
+    @Transactional
+    public void generateBracket(Long tournamentId, List<Long> participatingTeamIds) {
+        Tournament tournament = tournamentRepository.findById(tournamentId)
+                .orElseThrow(() -> new RuntimeException("대회를 찾을 수 없습니다: " + tournamentId));
+
+        if (tournament.getBracketGenerated()) {
+            throw new RuntimeException("이미 대진표가 생성된 대회입니다.");
+        }
+
+        // 팀 검증
+        if (participatingTeamIds.size() < tournament.getTournamentType().getMinimumTeams()) {
+            throw new RuntimeException(
+                String.format("최소 %d팀 이상 필요합니다.", 
+                    tournament.getTournamentType().getMinimumTeams())
+            );
+        }
+
+        if (participatingTeamIds.size() > tournament.getMaxTeams()) {
+            throw new RuntimeException(
+                String.format("최대 %d팀까지만 참가할 수 있습니다.", tournament.getMaxTeams())
+            );
+        }
+
+        // TODO: Team 엔티티 조회 (실제 구현 시)
+        // List<Team> teams = teamRepository.findAllById(participatingTeamIds);
+        
+        // 대진표 생성 타입별 분기
+        switch (tournament.getTournamentType()) {
+            case SINGLE_ELIMINATION:
+                generateSingleEliminationBracket(tournament, participatingTeamIds);
+                break;
+            case GROUP_STAGE:
+                generateGroupStageBracket(tournament, participatingTeamIds);
+                break;
+            case SWISS_SYSTEM:
+                generateSwissSystemBracket(tournament, participatingTeamIds);
+                break;
+        }
+
+        tournament.setBracketGenerated(true);
+        tournamentRepository.save(tournament);
+        
+        log.info("대진표 생성 완료: 대회 ID={}, 타입={}, 팀 수={}", 
+            tournamentId, tournament.getTournamentType(), participatingTeamIds.size());
+    }
+
+    /**
+     * 싱글 엘리미네이션 대진표 생성
+     */
+    private void generateSingleEliminationBracket(Tournament tournament, List<Long> teamIds) {
+        int teamCount = teamIds.size();
+        
+        // 2의 거듭제곱으로 올림 (부전승 처리)
+        int bracketSize = nextPowerOfTwo(teamCount);
+        int byeCount = bracketSize - teamCount;
+
+        log.info("토너먼트 대진표 생성: 총 {}팀, 브라켓 크기={}, 부전승={}", teamCount, bracketSize, byeCount);
+
+        // 팀 셔플 (랜덤 시드)
+        List<Long> shuffledTeams = new ArrayList<>(teamIds);
+        Collections.shuffle(shuffledTeams);
+
+        // 부전승 팀 추가 (null로 표시)
+        for (int i = 0; i < byeCount; i++) {
+            shuffledTeams.add(null);
+        }
+
+        // 1라운드 매치 생성
+        int matchNumber = 1;
+        for (int i = 0; i < bracketSize; i += 2) {
+            Long team1Id = shuffledTeams.get(i);
+            Long team2Id = shuffledTeams.get(i + 1);
+
+            TournamentMatch match = TournamentMatch.builder()
+                    .tournament(tournament)
+                    .round(1)
+                    .matchNumber(matchNumber++)
+                    .status(TournamentMatch.MatchStatus.SCHEDULED)
+                    .build();
+
+            // TODO: Team 엔티티 설정
+            // if (team1Id != null) match.assignTeam1(teamRepository.findById(team1Id).orElse(null));
+            // if (team2Id != null) match.assignTeam2(teamRepository.findById(team2Id).orElse(null));
+            
+            matchRepository.save(match);
+        }
+
+        // 이후 라운드 빈 매치 생성 (승자가 올라갈 자리)
+        int totalRounds = (int) (Math.log(bracketSize) / Math.log(2));
+        int currentMatchCount = bracketSize / 2;
+
+        for (int round = 2; round <= totalRounds; round++) {
+            currentMatchCount /= 2;
+            for (int i = 1; i <= currentMatchCount; i++) {
+                TournamentMatch match = TournamentMatch.builder()
+                        .tournament(tournament)
+                        .round(round)
+                        .matchNumber(i)
+                        .status(TournamentMatch.MatchStatus.SCHEDULED)
+                        .build();
+                matchRepository.save(match);
+            }
+        }
+    }
+
+    /**
+     * 조별 리그 대진표 생성
+     */
+    private void generateGroupStageBracket(Tournament tournament, List<Long> teamIds) {
+        int teamCount = teamIds.size();
+        int groupCount = tournament.getGroupCount();
+        int teamsPerGroup = tournament.getTeamsPerGroup();
+
+        if (teamCount != groupCount * teamsPerGroup) {
+            throw new RuntimeException(
+                String.format("팀 수(%d)가 조 구성(%d개 조 × %d팀)과 맞지 않습니다.", 
+                    teamCount, groupCount, teamsPerGroup)
+            );
+        }
+
+        log.info("조별리그 대진표 생성: {}개 조, 조당 {}팀", groupCount, teamsPerGroup);
+
+        // 팀 셔플
+        List<Long> shuffledTeams = new ArrayList<>(teamIds);
+        Collections.shuffle(shuffledTeams);
+
+        // 조 생성 및 팀 배정
+        List<TournamentGroup> groups = new ArrayList<>();
+
+        for (int i = 0; i < groupCount; i++) {
+            TournamentGroup group = TournamentGroup.builder()
+                    .tournament(tournament)
+                    .groupName(generateGroupName(i))
+                    .groupOrder(i + 1)
+                    .teams(new ArrayList<>())
+                    .build();
+
+            // 조에 팀 배정
+            for (int j = 0; j < teamsPerGroup; j++) {
+                int teamIndex = i * teamsPerGroup + j;
+                // TODO: Team 추가
+                // group.addTeam(teamRepository.findById(shuffledTeams.get(teamIndex)).orElse(null));
+            }
+
+            groups.add(groupRepository.save(group));
+        }
+
+        // 각 조별 리그 매치 생성 (라운드 로빈)
+        int matchNumber = 1;
+        for (TournamentGroup group : groups) {
+            List<Team> groupTeams = group.getTeams();
+            
+            // 조 내 모든 팀이 한 번씩 경기
+            for (int i = 0; i < groupTeams.size(); i++) {
+                for (int j = i + 1; j < groupTeams.size(); j++) {
+                    TournamentMatch match = TournamentMatch.builder()
+                            .tournament(tournament)
+                            .round(1) // 조별리그는 모두 1라운드
+                            .matchNumber(matchNumber++)
+                            .groupId(group.getGroupName())
+                            .status(TournamentMatch.MatchStatus.SCHEDULED)
+                            .build();
+
+                    // TODO: Team 설정
+                    // match.assignTeam1(groupTeams.get(i));
+                    // match.assignTeam2(groupTeams.get(j));
+
+                    matchRepository.save(match);
+                }
+            }
+        }
+
+        log.info("조별리그 총 {}경기 생성", matchNumber - 1);
+
+        // 결선 토너먼트는 조별리그 종료 후 생성
+        // (각 조 상위 N팀 추출 후 토너먼트)
+    }
+
+    /**
+     * 스위스 시스템 대진표 생성
+     */
+    private void generateSwissSystemBracket(Tournament tournament, List<Long> teamIds) {
+        int teamCount = teamIds.size();
+        int rounds = tournament.getSwissRounds();
+
+        if (teamCount % 2 != 0) {
+            throw new RuntimeException("스위스 시스템은 짝수 팀이 필요합니다.");
+        }
+
+        log.info("스위스 시스템 대진표 생성: {}팀, {}라운드", teamCount, rounds);
+
+        // 1라운드만 생성 (이후 라운드는 결과에 따라 동적 생성)
+        List<Long> shuffledTeams = new ArrayList<>(teamIds);
+        Collections.shuffle(shuffledTeams);
+
+        int matchNumber = 1;
+        for (int i = 0; i < teamCount; i += 2) {
+            TournamentMatch match = TournamentMatch.builder()
+                    .tournament(tournament)
+                    .round(1)
+                    .matchNumber(matchNumber++)
+                    .status(TournamentMatch.MatchStatus.SCHEDULED)
+                    .build();
+
+            // TODO: Team 설정
+            // match.assignTeam1(teamRepository.findById(shuffledTeams.get(i)).orElse(null));
+            // match.assignTeam2(teamRepository.findById(shuffledTeams.get(i + 1)).orElse(null));
+
+            matchRepository.save(match);
+        }
+
+        log.info("스위스 1라운드 {}경기 생성", matchNumber - 1);
+    }
+
+    /**
+     * 다음 2의 거듭제곱 계산
+     */
+    private int nextPowerOfTwo(int n) {
+        int power = 1;
+        while (power < n) {
+            power *= 2;
+        }
+        return power;
+    }
+
+    private String generateGroupName(int index) {
+        int alphabetSize = 26;
+        StringBuilder name = new StringBuilder();
+        int value = index;
+        do {
+            name.insert(0, (char) ('A' + (value % alphabetSize)));
+            value = (value / alphabetSize) - 1;
+        } while (value >= 0);
+        return name.toString();
+    }
+
+    /**
+     * 스위스 다음 라운드 생성 (결과 기반)
+     */
+    @Transactional
+    public void generateNextSwissRound(Long tournamentId, int currentRound) {
+        Tournament tournament = tournamentRepository.findById(tournamentId)
+                .orElseThrow(() -> new RuntimeException("대회를 찾을 수 없습니다"));
+
+        if (tournament.getTournamentType() != TournamentType.SWISS_SYSTEM) {
+            throw new RuntimeException("스위스 시스템 대회만 가능합니다.");
+        }
+
+        // 현재 라운드 결과 확인
+        List<TournamentMatch> currentMatches = matchRepository
+                .findByTournamentIdAndRound(tournamentId, currentRound);
+
+        boolean allFinished = currentMatches.stream()
+                .allMatch(TournamentMatch::isFinished);
+
+        if (!allFinished) {
+            throw new RuntimeException("현재 라운드가 모두 종료되지 않았습니다.");
+        }
+
+        // TODO: 승점 기반 팀 매칭 로직
+        // 같은 승점의 팀끼리 매칭
+        
+        log.info("스위스 {}라운드 생성 완료", currentRound + 1);
+    }
+}

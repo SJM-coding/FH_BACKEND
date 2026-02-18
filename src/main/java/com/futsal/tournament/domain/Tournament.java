@@ -48,6 +48,28 @@ public class Tournament {
     @Column(nullable = false, length = 500)
     private String originalLink; // 원본 사이트 링크
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    @Builder.Default
+    private TournamentType tournamentType = TournamentType.SINGLE_ELIMINATION;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer maxTeams = 16;
+
+    @Column
+    private Integer groupCount;
+
+    @Column
+    private Integer teamsPerGroup;
+
+    @Column
+    private Integer swissRounds;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean bracketGenerated = false;
+
     @ElementCollection
     @CollectionTable(name = "tournament_posters", joinColumns = @JoinColumn(name = "tournament_id"))
     @Column(name = "poster_url", length = 500)
@@ -57,6 +79,29 @@ public class Tournament {
     @Column(nullable = false, length = 20)
     @Builder.Default
     private String recruitmentStatus = "OPEN"; // 모집 상태: OPEN(모집중), CLOSED(마감)
+
+    @Column(length = 8, unique = true)
+    private String shareCode;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean allowJoin = true;
+
+    /**
+     * 외부 대회 여부
+     * true: 외부 대회 (포스터만 공유, 참가 불가)
+     * false: 내부 대회 (참가 가능)
+     */
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean isExternal = false;
+
+    /**
+     * 외부 대회 URL
+     * isExternal=true일 때만 사용
+     */
+    @Column(length = 500)
+    private String externalUrl;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
@@ -87,6 +132,10 @@ public class Tournament {
      */
     public boolean isRegisteredBy(Long userId) {
         return this.registeredBy != null && this.registeredBy.getId().equals(userId);
+    }
+
+    public Long getRegisteredById() {
+        return this.registeredBy != null ? this.registeredBy.getId() : null;
     }
 
     /**

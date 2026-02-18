@@ -1,6 +1,7 @@
 package com.futsal.tournament.repository;
 
 import com.futsal.tournament.domain.Tournament;
+import com.futsal.tournament.dto.TournamentListResponse;
 import com.futsal.user.domain.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -25,7 +26,71 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
     @Query("SELECT t FROM Tournament t LEFT JOIN FETCH t.registeredBy WHERE t.registeredBy = :registeredBy ORDER BY t.createdAt DESC")
     List<Tournament> findByRegisteredByOrderByCreatedAtDesc(@Param("registeredBy") User registeredBy);
 
+    // 목록용 프로젝션: 전체 조회
+    @Query("""
+        SELECT new com.futsal.tournament.dto.TournamentListResponse(
+            t.id,
+            t.title,
+            t.tournamentDate,
+            t.location,
+            t.recruitmentStatus,
+            '',
+            u.nickname,
+            t.gender,
+            t.playerType
+        )
+        FROM Tournament t
+        LEFT JOIN t.registeredBy u
+        ORDER BY t.tournamentDate ASC
+    """)
+    List<TournamentListResponse> findListAll();
+
+    // 목록용 프로젝션: 키워드 검색
+    @Query("""
+        SELECT new com.futsal.tournament.dto.TournamentListResponse(
+            t.id,
+            t.title,
+            t.tournamentDate,
+            t.location,
+            t.recruitmentStatus,
+            '',
+            u.nickname,
+            t.gender,
+            t.playerType
+        )
+        FROM Tournament t
+        LEFT JOIN t.registeredBy u
+        WHERE t.title LIKE CONCAT('%', :keyword, '%')
+           OR t.location LIKE CONCAT('%', :keyword, '%')
+        ORDER BY t.tournamentDate ASC
+    """)
+    List<TournamentListResponse> findListByKeyword(@Param("keyword") String keyword);
+
+    // 목록용 프로젝션: 내가 등록한 대회
+    @Query("""
+        SELECT new com.futsal.tournament.dto.TournamentListResponse(
+            t.id,
+            t.title,
+            t.tournamentDate,
+            t.location,
+            t.recruitmentStatus,
+            '',
+            u.nickname,
+            t.gender,
+            t.playerType
+        )
+        FROM Tournament t
+        LEFT JOIN t.registeredBy u
+        WHERE t.registeredBy = :registeredBy
+        ORDER BY t.createdAt DESC
+    """)
+    List<TournamentListResponse> findListByRegisteredBy(@Param("registeredBy") User registeredBy);
+
     // Phase 2-5: 특정 날짜 이전 대회 조회 (자동 삭제용)
     List<Tournament> findByTournamentDateBefore(LocalDate date);
+
+    boolean existsByShareCode(String shareCode);
+
+    java.util.Optional<Tournament> findByShareCode(String shareCode);
 
 }

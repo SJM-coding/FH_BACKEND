@@ -2,6 +2,7 @@ package com.futsal.tournament.controller;
 
 import com.futsal.tournament.dto.TournamentCreateRequest;
 import com.futsal.tournament.dto.TournamentResponse;
+import com.futsal.tournament.dto.TournamentListResponse;
 import com.futsal.tournament.dto.TournamentUpdateRequest;
 import com.futsal.user.domain.User;
 import com.futsal.common.storage.S3Service;
@@ -55,13 +56,13 @@ public class TournamentController {
      * (id 경로 변수보다 먼저 매핑되어야 함)
      */
     @GetMapping("/my")
-    public ResponseEntity<List<TournamentResponse>> getMyTournaments(
+    public ResponseEntity<List<TournamentListResponse>> getMyTournaments(
             @AuthenticationPrincipal User user
     ) {
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        List<TournamentResponse> tournaments = tournamentService.getMyTournaments(user);
+        List<TournamentListResponse> tournaments = tournamentService.getMyTournaments(user);
         return ResponseEntity.ok(tournaments);
     }
 
@@ -71,8 +72,8 @@ public class TournamentController {
      * (id 경로 변수보다 먼저 매핑되어야 함)
      */
     @GetMapping("/search")
-    public ResponseEntity<List<TournamentResponse>> searchTournaments(@RequestParam String keyword) {
-        List<TournamentResponse> tournaments = tournamentService.searchTournaments(keyword);
+    public ResponseEntity<List<TournamentListResponse>> searchTournaments(@RequestParam String keyword) {
+        List<TournamentListResponse> tournaments = tournamentService.searchTournaments(keyword);
         return ResponseEntity.ok(tournaments);
     }
 
@@ -97,8 +98,12 @@ public class TournamentController {
      * GET /api/tournaments
      */
     @GetMapping
-    public ResponseEntity<List<TournamentResponse>> getAllTournaments() {
-        List<TournamentResponse> tournaments = tournamentService.getAllTournaments();
+    public ResponseEntity<List<TournamentListResponse>> getAllTournaments(
+            @RequestParam(required = false) String gender,
+            @RequestParam(required = false) String playerType,
+            @RequestParam(required = false) Integer limit
+    ) {
+        List<TournamentListResponse> tournaments = tournamentService.getTournaments(gender, playerType, limit);
         return ResponseEntity.ok(tournaments);
     }
 

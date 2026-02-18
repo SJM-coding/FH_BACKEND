@@ -1,9 +1,11 @@
 package com.futsal.tournament.service;
 
 import com.futsal.tournament.dto.TournamentCreateRequest;
+import com.futsal.tournament.dto.TournamentListResponse;
 import com.futsal.tournament.dto.TournamentResponse;
 import com.futsal.tournament.dto.TournamentUpdateRequest;
 import com.futsal.tournament.domain.Tournament;
+import com.futsal.tournament.domain.TournamentType;
 import com.futsal.user.domain.User;
 import com.futsal.tournament.repository.TournamentRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,6 +34,10 @@ public class TournamentService {
      */
     @Transactional
     public TournamentResponse createTournament(TournamentCreateRequest request, User registeredBy) {
+        // 외부 대회일 경우 allowJoin = false 강제
+        Boolean isExternal = request.getIsExternal() != null ? request.getIsExternal() : false;
+        Boolean allowJoin = isExternal ? false : true;
+        
         Tournament tournament = Tournament.builder()
                 .title(request.getTitle())
                 .tournamentDate(request.getTournamentDate())
@@ -41,7 +47,17 @@ public class TournamentService {
                 .description(request.getDescription())
                 .viewCount(0)
                 .originalLink(request.getOriginalLink())
+                .tournamentType(request.getTournamentType() != null
+                        ? request.getTournamentType()
+                        : TournamentType.SINGLE_ELIMINATION)
+                .maxTeams(request.getMaxTeams() != null ? request.getMaxTeams() : 16)
+                .groupCount(request.getGroupCount())
+                .teamsPerGroup(request.getTeamsPerGroup())
+                .swissRounds(request.getSwissRounds())
                 .posterUrls(normalizePosterUrls(request.getPosterUrls()))
+                .isExternal(isExternal)
+                .externalUrl(request.getExternalUrl())
+                .allowJoin(allowJoin)
                 .registeredBy(registeredBy)
                 .build();
 
@@ -72,6 +88,19 @@ public class TournamentService {
         if (request.getOriginalLink() != null) tournament.setOriginalLink(request.getOriginalLink());
         if (request.getPosterUrls() != null) tournament.setPosterUrls(normalizePosterUrls(request.getPosterUrls()));
         if (request.getRecruitmentStatus() != null) tournament.setRecruitmentStatus(request.getRecruitmentStatus());
+        if (request.getTournamentType() != null) tournament.setTournamentType(request.getTournamentType());
+        if (request.getMaxTeams() != null) tournament.setMaxTeams(request.getMaxTeams());
+        if (request.getGroupCount() != null) tournament.setGroupCount(request.getGroupCount());
+        if (request.getTeamsPerGroup() != null) tournament.setTeamsPerGroup(request.getTeamsPerGroup());
+        if (request.getSwissRounds() != null) tournament.setSwissRounds(request.getSwissRounds());
+        if (request.getIsExternal() != null) {
+            tournament.setIsExternal(request.getIsExternal());
+            // 외부 대회로 변경 시 allowJoin = false
+            if (request.getIsExternal()) {
+                tournament.setAllowJoin(false);
+            }
+        }
+        if (request.getExternalUrl() != null) tournament.setExternalUrl(request.getExternalUrl());
         
         Tournament saved = tournamentRepository.save(tournament);
         return toResponse(saved);
@@ -81,11 +110,16 @@ public class TournamentService {
      * Phase 2-3: 내가 등록한 대회 목록
      */
     @Transactional(readOnly = true)
-    public List<TournamentResponse> getMyTournaments(User user) {
-        return tournamentRepository.findByRegisteredByOrderByCreatedAtDesc(user)
-                .stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+    public List<TournamentListResponse> getMyTournaments(User user) {
+        List<TournamentListResponse> responses = tournamentRepository.findListByRegisteredBy(user);
+        // posterUrl 채우기
+        for (TournamentListResponse response : responses) {
+            Tournament t = tournamentRepository.findById(response.getId()).orElse(null);
+            if (t != null && t.getPosterUrls() != null && !t.getPosterUrls().isEmpty()) {
+                response.setPosterUrl(t.getPosterUrls().get(0));
+            }
+        }
+        return responses;
     }
 
     /**
@@ -123,34 +157,93 @@ public class TournamentService {
                 tournament.getDescription(),
                 tournament.getViewCount(),
                 tournament.getOriginalLink(),
+                tournament.getTournamentType() != null ? tournament.getTournamentType().name() : null,
+                tournament.getMaxTeams(),
+                tournament.getGroupCount(),
+                tournament.getTeamsPerGroup(),
+                tournament.getSwissRounds(),
+                tournament.getBracketGenerated(),
                 tournament.getPosterUrls() != null ? tournament.getPosterUrls() : new ArrayList<>(),
                 tournament.getRecruitmentStatus(),
                 tournament.getRegisteredBy() != null ? tournament.getRegisteredBy().getId() : null,
                 tournament.getRegisteredBy() != null ? tournament.getRegisteredBy().getNickname() : null,
-                tournament.getCreatedAt()
+                tournament.getCreatedAt(),
+                tournament.getIsExternal(),
+                tournament.getExternalUrl()
         );
     }
 
     /**
-     * 전체 대회 목록 조회 (날짜순)
+     * 대회 목록 조회 (gender, playerType, limit 필터링 가능)
+     * - limit이 있으면 가까운 날짜순으로 정렬
+     * - limit이 없으면 최신순으로 정렬
      */
     @Transactional(readOnly = true)
-    public List<TournamentResponse> getAllTournaments() {
-        return tournamentRepository.findAllByOrderByTournamentDateAsc()
-                .stream()
-                .map(this::toResponse)
+    public List<TournamentListResponse> getTournaments(String gender, String playerType, Integer limit) {
+        List<TournamentListResponse> responses = tournamentRepository.findListAll();
+        
+        // posterUrl 채우기
+        for (TournamentListResponse response : responses) {
+            Tournament t = tournamentRepository.findById(response.getId()).orElse(null);
+            if (t != null && t.getPosterUrls() != null && !t.getPosterUrls().isEmpty()) {
+                response.setPosterUrl(t.getPosterUrls().get(0));
+            }
+        }
+        
+        // gender 필터링 (TournamentListResponse에 gender/playerType 필드 포함됨)
+        if (gender != null) {
+            responses = responses.stream()
+                .filter(r -> gender.equals(r.getGender()))
                 .collect(Collectors.toList());
+        }
+        
+        // playerType 필터링
+        if (playerType != null) {
+            responses = responses.stream()
+                .filter(r -> playerType.equals(r.getPlayerType()))
+                .collect(Collectors.toList());
+        }
+        
+        // 정렬: limit이 있으면 가까운 날짜순, 없으면 최신순
+        LocalDate today = LocalDate.now();
+        if (limit != null && limit > 0) {
+            // 가까운 날짜순 (오늘과의 차이 절대값으로 정렬)
+            responses.sort((a, b) -> {
+                long diffA = Math.abs(java.time.temporal.ChronoUnit.DAYS.between(today, a.getTournamentDate()));
+                long diffB = Math.abs(java.time.temporal.ChronoUnit.DAYS.between(today, b.getTournamentDate()));
+                return Long.compare(diffA, diffB);
+            });
+            // limit 개수만 반환
+            return responses.stream().limit(limit).collect(Collectors.toList());
+        } else {
+            // 최신순 (날짜 내림차순)
+            responses.sort((a, b) -> b.getTournamentDate().compareTo(a.getTournamentDate()));
+            return responses;
+        }
+    }
+    
+    /**
+     * 전체 대회 목록 조회 (날짜순) - 호환성을 위해 유지
+     */
+    @Transactional(readOnly = true)
+    public List<TournamentListResponse> getAllTournaments() {
+        return getTournaments(null, null, null);
     }
 
     /**
      * 키워드 검색
      */
     @Transactional(readOnly = true)
-    public List<TournamentResponse> searchTournaments(String keyword) {
-        return tournamentRepository.findByKeyword(keyword)
-                .stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+    public List<TournamentListResponse> searchTournaments(String keyword) {
+        List<TournamentListResponse> responses = tournamentRepository.findListByKeyword(keyword);
+        // posterUrl 채우기
+        for (TournamentListResponse response : responses) {
+            Tournament t = tournamentRepository.findById(response.getId()).orElse(null);
+            if (t != null && t.getPosterUrls() != null && !t.getPosterUrls().isEmpty()) {
+                response.setPosterUrl(t.getPosterUrls().get(0));
+            }
+        }
+        return responses;
     }
 
     /**
@@ -165,6 +258,16 @@ public class TournamentService {
         tournament.setViewCount(tournament.getViewCount() + 1);
         tournamentRepository.save(tournament);
         
+        return toResponse(tournament);
+    }
+
+    /**
+     * 공유코드로 대회 조회 (조회수 증가 없이)
+     */
+    @Transactional(readOnly = true)
+    public TournamentResponse getTournamentByShareCode(String shareCode) {
+        Tournament tournament = tournamentRepository.findByShareCode(shareCode)
+                .orElseThrow(() -> new RuntimeException("유효하지 않은 공유코드입니다: " + shareCode));
         return toResponse(tournament);
     }
 

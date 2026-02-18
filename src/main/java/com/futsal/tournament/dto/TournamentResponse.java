@@ -22,9 +22,17 @@ public class TournamentResponse {
     private String description;
     private int viewCount;
     private String originalLink;
+    private String tournamentType;
+    private Integer maxTeams;
+    private Integer groupCount;
+    private Integer teamsPerGroup;
+    private Integer swissRounds;
+    private Boolean bracketGenerated;
     private List<String> posterUrls; // 포스터 URL 목록
     private String recruitmentStatus; // OPEN, CLOSED
     private Long registeredById;
     private String registeredByName;
     private LocalDateTime createdAt;
+    private Boolean isExternal;
+    private String externalUrl;
 }

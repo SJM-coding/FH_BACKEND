@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.util.List;
+import com.futsal.tournament.domain.TournamentType;
 
 @Data
 @NoArgsConstructor
@@ -35,5 +36,14 @@ public class TournamentCreateRequest {
     @NotBlank(message = "원본 링크는 필수입니다")
     private String originalLink;
 
+    private TournamentType tournamentType;
+    private Integer maxTeams;
+    private Integer groupCount;
+    private Integer teamsPerGroup;
+    private Integer swissRounds;
+
     private List<String> posterUrls; // S3 업로드 후 URL 목록
+    
+    private Boolean isExternal; // 외부 대회 여부
+    private String externalUrl; // 외부 대회 URL
 }
