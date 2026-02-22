@@ -7,6 +7,8 @@ import com.futsal.tournament.repository.TournamentMatchRepository;
 import com.futsal.tournament.repository.TournamentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +31,7 @@ public class BracketService {
      * 대진표 전체 조회
      */
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "bracket", key = "#tournamentId")
     public BracketResponse getBracket(Long tournamentId) {
         Tournament tournament = tournamentRepository.findById(tournamentId)
                 .orElseThrow(() -> new RuntimeException("대회를 찾을 수 없습니다: " + tournamentId));
@@ -311,9 +314,14 @@ public class BracketService {
      * 경기 결과 입력
      */
     @Transactional
-    public MatchResponse recordMatchResult(Long matchId, MatchResultRequest request) {
+    @CacheEvict(cacheNames = "bracket", key = "#tournamentId")
+    public MatchResponse recordMatchResult(Long tournamentId, Long matchId, MatchResultRequest request) {
         TournamentMatch match = matchRepository.findById(matchId)
                 .orElseThrow(() -> new RuntimeException("경기를 찾을 수 없습니다: " + matchId));
+
+        if (!match.getTournament().getId().equals(tournamentId)) {
+            throw new RuntimeException("대회 정보가 일치하지 않습니다.");
+        }
 
         match.recordResult(
                 request.getTeam1Score(),

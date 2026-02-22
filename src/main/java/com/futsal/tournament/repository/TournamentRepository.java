@@ -93,4 +93,7 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
 
     java.util.Optional<Tournament> findByShareCode(String shareCode);
 
+    @Query("SELECT t.id, p FROM Tournament t JOIN t.posterUrls p WHERE t.id IN :ids")
+    List<Object[]> findPosterUrlsByTournamentIds(@Param("ids") List<Long> ids);
+
 }

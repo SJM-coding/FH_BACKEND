@@ -75,7 +75,7 @@ public class BracketController {
         }
 
         try {
-            MatchResponse result = bracketService.recordMatchResult(matchId, request);
+            MatchResponse result = bracketService.recordMatchResult(tournamentId, matchId, request);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

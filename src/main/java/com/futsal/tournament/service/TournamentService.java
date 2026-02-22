@@ -112,13 +112,7 @@ public class TournamentService {
     @Transactional(readOnly = true)
     public List<TournamentListResponse> getMyTournaments(User user) {
         List<TournamentListResponse> responses = tournamentRepository.findListByRegisteredBy(user);
-        // posterUrl 채우기
-        for (TournamentListResponse response : responses) {
-            Tournament t = tournamentRepository.findById(response.getId()).orElse(null);
-            if (t != null && t.getPosterUrls() != null && !t.getPosterUrls().isEmpty()) {
-                response.setPosterUrl(t.getPosterUrls().get(0));
-            }
-        }
+        populatePosterUrls(responses);
         return responses;
     }
 
@@ -181,14 +175,7 @@ public class TournamentService {
     @Transactional(readOnly = true)
     public List<TournamentListResponse> getTournaments(String gender, String playerType, Integer limit) {
         List<TournamentListResponse> responses = tournamentRepository.findListAll();
-        
-        // posterUrl 채우기
-        for (TournamentListResponse response : responses) {
-            Tournament t = tournamentRepository.findById(response.getId()).orElse(null);
-            if (t != null && t.getPosterUrls() != null && !t.getPosterUrls().isEmpty()) {
-                response.setPosterUrl(t.getPosterUrls().get(0));
-            }
-        }
+        populatePosterUrls(responses);
         
         // gender 필터링 (TournamentListResponse에 gender/playerType 필드 포함됨)
         if (gender != null) {
@@ -236,13 +223,7 @@ public class TournamentService {
     @Transactional(readOnly = true)
     public List<TournamentListResponse> searchTournaments(String keyword) {
         List<TournamentListResponse> responses = tournamentRepository.findListByKeyword(keyword);
-        // posterUrl 채우기
-        for (TournamentListResponse response : responses) {
-            Tournament t = tournamentRepository.findById(response.getId()).orElse(null);
-            if (t != null && t.getPosterUrls() != null && !t.getPosterUrls().isEmpty()) {
-                response.setPosterUrl(t.getPosterUrls().get(0));
-            }
-        }
+        populatePosterUrls(responses);
         return responses;
     }
 
@@ -285,5 +266,35 @@ public class TournamentService {
         }
 
         tournamentRepository.deleteById(id);
+    }
+
+    private void populatePosterUrls(List<TournamentListResponse> responses) {
+        if (responses == null || responses.isEmpty()) {
+            return;
+        }
+
+        List<Long> ids = responses.stream()
+                .map(TournamentListResponse::getId)
+                .collect(Collectors.toList());
+
+        List<Object[]> rows = tournamentRepository.findPosterUrlsByTournamentIds(ids);
+        if (rows == null || rows.isEmpty()) {
+            return;
+        }
+
+        // keep the first poster encountered per tournament (same as previous behavior)
+        java.util.Map<Long, String> firstPosterByTournamentId = new java.util.HashMap<>();
+        for (Object[] row : rows) {
+            Long tournamentId = (Long) row[0];
+            String posterUrl = (String) row[1];
+            firstPosterByTournamentId.putIfAbsent(tournamentId, posterUrl);
+        }
+
+        for (TournamentListResponse response : responses) {
+            String posterUrl = firstPosterByTournamentId.get(response.getId());
+            if (posterUrl != null) {
+                response.setPosterUrl(posterUrl);
+            }
+        }
     }
 }

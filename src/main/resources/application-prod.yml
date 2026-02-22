@@ -1,6 +1,8 @@
 # application-prod.yml (프로드 환경 - AWS RDS)
 # ⚠️ 실제 값은 환경변수로 주입받아야 합니다
 spring:
+  cache:
+    type: redis
   datasource:
     url: ${DB_URL}                          # jdbc:mysql://{RDS endpoint}:3306/futsaldb
     driver-class-name: com.mysql.cj.jdbc.Driver
