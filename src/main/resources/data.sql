@@ -34,6 +34,18 @@ VALUES
 ('1000000008', '테스트 팀장7', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 ('1000000009', '테스트 팀장8', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
+-- 추가 테스트 사용자 (8명)
+INSERT INTO users (kakao_id, nickname, profile_image_url, role, created_at, updated_at)
+VALUES 
+('1000000010', '테스트 팀장9', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('1000000011', '테스트 팀장10', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('1000000012', '테스트 팀장11', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('1000000013', '테스트 팀장12', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('1000000014', '테스트 팀장13', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('1000000015', '테스트 팀장14', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('1000000016', '테스트 팀장15', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('1000000017', '테스트 팀장16', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
 -- 테스트 팀 (8개)
 INSERT INTO teams (name, logo_url, region, captain_user_id, created_at, updated_at)
 VALUES 
@@ -45,6 +57,18 @@ VALUES
 ('논현 FC', 'https://via.placeholder.com/100', '서울', 6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 ('삼성 FC', 'https://via.placeholder.com/100', '서울', 7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 ('대치 FC', 'https://via.placeholder.com/100', '서울', 8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+-- 테스트 팀 (랜덤 8개 추가)
+INSERT INTO teams (name, logo_url, region, captain_user_id, created_at, updated_at)
+VALUES 
+('블루 스파크 FC', 'https://via.placeholder.com/100', '서울', 10, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('레드 스트라이커즈', 'https://via.placeholder.com/100', '서울', 11, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('나이트 러너스', 'https://via.placeholder.com/100', '서울', 12, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('골든 윙즈', 'https://via.placeholder.com/100', '서울', 13, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('실버 타이탄', 'https://via.placeholder.com/100', '서울', 14, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('그린 웨이브', 'https://via.placeholder.com/100', '서울', 15, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('블랙 코멧', 'https://via.placeholder.com/100', '서울', 16, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('화이트 폭스', 'https://via.placeholder.com/100', '서울', 17, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 -- 테스트 대회 생성 (8팀 토너먼트)
 INSERT INTO tournaments (
