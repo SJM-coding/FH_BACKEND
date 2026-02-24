@@ -1,11 +1,14 @@
 package com.futsal.auth.controller;
 
+import com.futsal.auth.dto.RoleSelectionRequest;
 import com.futsal.auth.jwt.JwtTokenProvider;
 import com.futsal.auth.service.RefreshTokenService;
 import com.futsal.user.domain.User;
+import com.futsal.user.domain.UserRole;
 import com.futsal.user.dto.UserUpdateRequest;
 import com.futsal.user.repository.UserRepository;
 import com.futsal.user.service.UserService;
+import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -94,6 +97,49 @@ public class AuthController {
         response.put("nickname", user.getNickname());
         response.put("profileImageUrl", user.getProfileImageUrl());
         response.put("role", user.getRole());
+        response.put("roleSelected", user.getRoleSelected());
+
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 역할 선택 (첫 로그인 시)
+     */
+    @PutMapping("/role")
+    public ResponseEntity<Map<String, Object>> selectRole(
+            @AuthenticationPrincipal User user,
+            @Valid @RequestBody RoleSelectionRequest request
+    ) {
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        // 이미 역할을 선택한 경우
+        if (Boolean.TRUE.equals(user.getRoleSelected())) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Role already selected");
+            return ResponseEntity.status(409).body(errorResponse);
+        }
+
+        // ADMIN 역할 선택 시도 차단
+        if ("ADMIN".equals(request.getRole())) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Cannot select ADMIN role");
+            return ResponseEntity.status(403).body(errorResponse);
+        }
+
+        // 역할 선택
+        UserRole selectedRole = UserRole.valueOf(request.getRole());
+        user.selectRole(selectedRole);
+        userRepository.save(user);
+
+        // 새 토큰 발급 (role claim 업데이트)
+        String newAccessToken = jwtTokenProvider.createAccessToken(user.getId(), selectedRole.name());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("accessToken", newAccessToken);
+        response.put("role", selectedRole.name());
+        response.put("roleSelected", true);
 
         return ResponseEntity.ok(response);
     }

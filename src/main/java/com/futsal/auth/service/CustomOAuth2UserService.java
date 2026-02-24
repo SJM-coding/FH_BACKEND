@@ -77,7 +77,8 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                             .kakaoId(userInfo.getProviderId())
                             .nickname(userInfo.getNickname())
                             .profileImageUrl(userInfo.getProfileImageUrl())
-                            .role(UserRole.USER)
+                            .role(UserRole.PARTICIPANT)
+                            .roleSelected(false)
                             .build();
                     return userRepository.save(newUser);
                 });

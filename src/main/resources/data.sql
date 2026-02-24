@@ -22,33 +22,33 @@ VALUES
 
 -- 대진표 테스트용 데이터
 -- 테스트 사용자 (9명)
-INSERT INTO users (kakao_id, nickname, profile_image_url, role, created_at, updated_at)
+INSERT INTO users (kakao_id, nickname, profile_image_url, role, role_selected, created_at, updated_at)
 VALUES 
-('1000000001', '테스트 주최자', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('1000000002', '테스트 팀장1', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('1000000003', '테스트 팀장2', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('1000000004', '테스트 팀장3', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('1000000005', '테스트 팀장4', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('1000000006', '테스트 팀장5', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('1000000007', '테스트 팀장6', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('1000000008', '테스트 팀장7', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('1000000009', '테스트 팀장8', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+('1000000001', '테스트 주최자', 'https://via.placeholder.com/150', 'ORGANIZER', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('1000000002', '테스트 팀장1', 'https://via.placeholder.com/150', 'PARTICIPANT', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('1000000003', '테스트 팀장2', 'https://via.placeholder.com/150', 'PARTICIPANT', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('1000000004', '테스트 팀장3', 'https://via.placeholder.com/150', 'PARTICIPANT', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('1000000005', '테스트 팀장4', 'https://via.placeholder.com/150', 'PARTICIPANT', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('1000000006', '테스트 팀장5', 'https://via.placeholder.com/150', 'PARTICIPANT', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('1000000007', '테스트 팀장6', 'https://via.placeholder.com/150', 'PARTICIPANT', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('1000000008', '테스트 팀장7', 'https://via.placeholder.com/150', 'PARTICIPANT', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('1000000009', '테스트 팀장8', 'https://via.placeholder.com/150', 'ADMIN', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 -- 추가 테스트 사용자 (8명)
-INSERT INTO users (kakao_id, nickname, profile_image_url, role, created_at, updated_at)
+INSERT INTO users (kakao_id, nickname, profile_image_url, role, role_selected, created_at, updated_at)
 VALUES 
-('1000000010', '테스트 팀장9', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('1000000011', '테스트 팀장10', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('1000000012', '테스트 팀장11', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('1000000013', '테스트 팀장12', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('1000000014', '테스트 팀장13', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('1000000015', '테스트 팀장14', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('1000000016', '테스트 팀장15', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('1000000017', '테스트 팀장16', 'https://via.placeholder.com/150', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+('1000000010', '테스트 팀장9', 'https://via.placeholder.com/150', 'PARTICIPANT', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('1000000011', '테스트 팀장10', 'https://via.placeholder.com/150', 'PARTICIPANT', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('1000000012', '테스트 팀장11', 'https://via.placeholder.com/150', 'PARTICIPANT', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('1000000013', '테스트 팀장12', 'https://via.placeholder.com/150', 'PARTICIPANT', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('1000000014', '테스트 팀장13', 'https://via.placeholder.com/150', 'PARTICIPANT', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('1000000015', '테스트 팀장14', 'https://via.placeholder.com/150', 'PARTICIPANT', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('1000000016', '테스트 팀장15', 'https://via.placeholder.com/150', 'PARTICIPANT', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('1000000017', '테스트 팀장16', 'https://via.placeholder.com/150', 'ORGANIZER', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 -- 테스트 팀 (8개)
 INSERT INTO teams (name, logo_url, region, captain_user_id, created_at, updated_at)
-VALUES 
+VALUES
 ('FC 서울', 'https://via.placeholder.com/100', '서울', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 ('강남 유나이티드', 'https://via.placeholder.com/100', '서울', 2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 ('압구정 FC', 'https://via.placeholder.com/100', '서울', 3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
@@ -60,7 +60,7 @@ VALUES
 
 -- 테스트 팀 (랜덤 8개 추가)
 INSERT INTO teams (name, logo_url, region, captain_user_id, created_at, updated_at)
-VALUES 
+VALUES
 ('블루 스파크 FC', 'https://via.placeholder.com/100', '서울', 10, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 ('레드 스트라이커즈', 'https://via.placeholder.com/100', '서울', 11, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 ('나이트 러너스', 'https://via.placeholder.com/100', '서울', 12, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
@@ -100,7 +100,7 @@ VALUES (
 
 -- 테스트 대회에 8개 팀 참가 신청 (tournament_id=6으로 가정)
 INSERT INTO tournament_participants (tournament_id, team_id, team_name, team_logo_url, registered_by, status, created_at, updated_at)
-VALUES 
+VALUES
 (6, 1, 'FC 서울', 'https://via.placeholder.com/100', 1, 'CONFIRMED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 (6, 2, '강남 유나이티드', 'https://via.placeholder.com/100', 2, 'CONFIRMED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 (6, 3, '압구정 FC', 'https://via.placeholder.com/100', 3, 'CONFIRMED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),

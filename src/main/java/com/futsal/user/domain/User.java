@@ -39,6 +39,9 @@ public class User {
     @Column(nullable = false, length = 20)
     private UserRole role;
 
+    @Column(nullable = false)
+    private Boolean roleSelected = false;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -82,5 +85,23 @@ public class User {
         if (profileImageUrl != null) {
             this.profileImageUrl = profileImageUrl;
         }
+    }
+
+    /**
+     * 역할 선택 (첫 로그인 시)
+     */
+    public void selectRole(UserRole role) {
+        if (role == UserRole.ADMIN) {
+            throw new IllegalArgumentException("ADMIN role cannot be selected");
+        }
+        this.role = role;
+        this.roleSelected = true;
+    }
+
+    /**
+     * 역할 선택 여부 반환
+     */
+    public Boolean getRoleSelected() {
+        return roleSelected;
     }
 }

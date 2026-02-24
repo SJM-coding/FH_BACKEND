@@ -48,9 +48,15 @@ public class SecurityConfig {
                 auth.requestMatchers("/api/auth/exchange").permitAll();
                 auth.requestMatchers("/api/auth/logout").permitAll();
                 auth.requestMatchers("/login/**", "/oauth2/**").permitAll();
+                // ShareCode 기반 대진표 접근 - 인증 불필요
+                auth.requestMatchers("/api/share/**").permitAll();
                 if (isLocal) {
                     auth.requestMatchers("/h2-console/**").permitAll();
                 }
+                // 대회 생성/수정/삭제 - ORGANIZER, ADMIN만 허용
+                auth.requestMatchers(HttpMethod.POST, "/api/tournaments").hasAnyRole("ORGANIZER", "ADMIN");
+                auth.requestMatchers(HttpMethod.PUT, "/api/tournaments/**").hasAnyRole("ORGANIZER", "ADMIN");
+                auth.requestMatchers(HttpMethod.DELETE, "/api/tournaments/**").hasAnyRole("ORGANIZER", "ADMIN");
                 // 인증 필요
                 auth.anyRequest().authenticated();
             })
