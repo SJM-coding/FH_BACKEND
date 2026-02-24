@@ -50,12 +50,13 @@ public class BracketController {
      * GET /api/tournaments/{tournamentId}/bracket
      */
     @GetMapping
-    public ResponseEntity<BracketResponse> getBracket(@PathVariable Long tournamentId) {
+    public ResponseEntity<?> getBracket(@PathVariable Long tournamentId) {
         try {
             BracketResponse bracket = bracketService.getBracket(tournamentId);
             return ResponseEntity.ok(bracket);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 

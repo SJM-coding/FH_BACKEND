@@ -1,6 +1,7 @@
 package com.futsal.tournament.service;
 
 import com.futsal.team.domain.Team;
+import com.futsal.team.repository.TeamRepository;
 import com.futsal.tournament.domain.*;
 import com.futsal.tournament.repository.TournamentGroupRepository;
 import com.futsal.tournament.repository.TournamentMatchRepository;
@@ -24,6 +25,7 @@ public class BracketGeneratorService {
     private final TournamentRepository tournamentRepository;
     private final TournamentMatchRepository matchRepository;
     private final TournamentGroupRepository groupRepository;
+    private final TeamRepository teamRepository;
 
     /**
      * 대진표 생성 (참가 팀 기반)
@@ -52,9 +54,6 @@ public class BracketGeneratorService {
             );
         }
 
-        // TODO: Team 엔티티 조회 (실제 구현 시)
-        // List<Team> teams = teamRepository.findAllById(participatingTeamIds);
-        
         // 대진표 생성 타입별 분기
         switch (tournament.getTournamentType()) {
             case SINGLE_ELIMINATION:
@@ -80,12 +79,18 @@ public class BracketGeneratorService {
      */
     private void generateSingleEliminationBracket(Tournament tournament, List<Long> teamIds) {
         int teamCount = teamIds.size();
-        
+
         // 2의 거듭제곱으로 올림 (부전승 처리)
         int bracketSize = nextPowerOfTwo(teamCount);
         int byeCount = bracketSize - teamCount;
 
         log.info("토너먼트 대진표 생성: 총 {}팀, 브라켓 크기={}, 부전승={}", teamCount, bracketSize, byeCount);
+
+        // 팀 조회
+        Map<Long, Team> teamMap = new HashMap<>();
+        for (Long teamId : teamIds) {
+            teamRepository.findById(teamId).ifPresent(team -> teamMap.put(teamId, team));
+        }
 
         // 팀 셔플 (랜덤 시드)
         List<Long> shuffledTeams = new ArrayList<>(teamIds);
@@ -109,10 +114,14 @@ public class BracketGeneratorService {
                     .status(TournamentMatch.MatchStatus.SCHEDULED)
                     .build();
 
-            // TODO: Team 엔티티 설정
-            // if (team1Id != null) match.assignTeam1(teamRepository.findById(team1Id).orElse(null));
-            // if (team2Id != null) match.assignTeam2(teamRepository.findById(team2Id).orElse(null));
-            
+            // 팀 배정
+            if (team1Id != null && teamMap.containsKey(team1Id)) {
+                match.assignTeam1(teamMap.get(team1Id));
+            }
+            if (team2Id != null && teamMap.containsKey(team2Id)) {
+                match.assignTeam2(teamMap.get(team2Id));
+            }
+
             matchRepository.save(match);
         }
 
@@ -144,12 +153,18 @@ public class BracketGeneratorService {
 
         if (teamCount != groupCount * teamsPerGroup) {
             throw new RuntimeException(
-                String.format("팀 수(%d)가 조 구성(%d개 조 × %d팀)과 맞지 않습니다.", 
+                String.format("팀 수(%d)가 조 구성(%d개 조 × %d팀)과 맞지 않습니다.",
                     teamCount, groupCount, teamsPerGroup)
             );
         }
 
         log.info("조별리그 대진표 생성: {}개 조, 조당 {}팀", groupCount, teamsPerGroup);
+
+        // 팀 조회
+        Map<Long, Team> teamMap = new HashMap<>();
+        for (Long teamId : teamIds) {
+            teamRepository.findById(teamId).ifPresent(team -> teamMap.put(teamId, team));
+        }
 
         // 팀 셔플
         List<Long> shuffledTeams = new ArrayList<>(teamIds);
@@ -157,6 +172,7 @@ public class BracketGeneratorService {
 
         // 조 생성 및 팀 배정
         List<TournamentGroup> groups = new ArrayList<>();
+        List<List<Team>> groupTeamsList = new ArrayList<>();
 
         for (int i = 0; i < groupCount; i++) {
             TournamentGroup group = TournamentGroup.builder()
@@ -166,21 +182,29 @@ public class BracketGeneratorService {
                     .teams(new ArrayList<>())
                     .build();
 
+            List<Team> groupTeams = new ArrayList<>();
+
             // 조에 팀 배정
             for (int j = 0; j < teamsPerGroup; j++) {
                 int teamIndex = i * teamsPerGroup + j;
-                // TODO: Team 추가
-                // group.addTeam(teamRepository.findById(shuffledTeams.get(teamIndex)).orElse(null));
+                Long teamId = shuffledTeams.get(teamIndex);
+                if (teamMap.containsKey(teamId)) {
+                    Team team = teamMap.get(teamId);
+                    group.getTeams().add(team);
+                    groupTeams.add(team);
+                }
             }
 
             groups.add(groupRepository.save(group));
+            groupTeamsList.add(groupTeams);
         }
 
         // 각 조별 리그 매치 생성 (라운드 로빈)
         int matchNumber = 1;
-        for (TournamentGroup group : groups) {
-            List<Team> groupTeams = group.getTeams();
-            
+        for (int g = 0; g < groups.size(); g++) {
+            TournamentGroup group = groups.get(g);
+            List<Team> groupTeams = groupTeamsList.get(g);
+
             // 조 내 모든 팀이 한 번씩 경기
             for (int i = 0; i < groupTeams.size(); i++) {
                 for (int j = i + 1; j < groupTeams.size(); j++) {
@@ -192,9 +216,9 @@ public class BracketGeneratorService {
                             .status(TournamentMatch.MatchStatus.SCHEDULED)
                             .build();
 
-                    // TODO: Team 설정
-                    // match.assignTeam1(groupTeams.get(i));
-                    // match.assignTeam2(groupTeams.get(j));
+                    // 팀 배정
+                    match.assignTeam1(groupTeams.get(i));
+                    match.assignTeam2(groupTeams.get(j));
 
                     matchRepository.save(match);
                 }
@@ -220,6 +244,12 @@ public class BracketGeneratorService {
 
         log.info("스위스 시스템 대진표 생성: {}팀, {}라운드", teamCount, rounds);
 
+        // 팀 조회
+        Map<Long, Team> teamMap = new HashMap<>();
+        for (Long teamId : teamIds) {
+            teamRepository.findById(teamId).ifPresent(team -> teamMap.put(teamId, team));
+        }
+
         // 1라운드만 생성 (이후 라운드는 결과에 따라 동적 생성)
         List<Long> shuffledTeams = new ArrayList<>(teamIds);
         Collections.shuffle(shuffledTeams);
@@ -233,9 +263,15 @@ public class BracketGeneratorService {
                     .status(TournamentMatch.MatchStatus.SCHEDULED)
                     .build();
 
-            // TODO: Team 설정
-            // match.assignTeam1(teamRepository.findById(shuffledTeams.get(i)).orElse(null));
-            // match.assignTeam2(teamRepository.findById(shuffledTeams.get(i + 1)).orElse(null));
+            // 팀 배정
+            Long team1Id = shuffledTeams.get(i);
+            Long team2Id = shuffledTeams.get(i + 1);
+            if (teamMap.containsKey(team1Id)) {
+                match.assignTeam1(teamMap.get(team1Id));
+            }
+            if (teamMap.containsKey(team2Id)) {
+                match.assignTeam2(teamMap.get(team2Id));
+            }
 
             matchRepository.save(match);
         }
