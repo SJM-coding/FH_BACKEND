@@ -13,7 +13,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "tournaments")
+@Table(
+    name = "tournaments",
+    uniqueConstraints = @UniqueConstraint(
+        name = "uk_tournament_duplicate",
+        columnNames = {"title", "tournament_date", "user_id","gender","playerType"}
+    )
+)
 @Data
 @Builder
 @NoArgsConstructor

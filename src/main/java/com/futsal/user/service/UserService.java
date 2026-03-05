@@ -55,8 +55,7 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다"));
 
-        // TODO: 사용자가 등록한 대회들도 함께 삭제할지 결정 필요
-        // 현재는 사용자만 삭제 (대회는 유지)
+
         userRepository.delete(user);
     }
 }

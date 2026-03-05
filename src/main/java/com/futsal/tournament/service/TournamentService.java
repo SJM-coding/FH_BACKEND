@@ -34,6 +34,14 @@ public class TournamentService {
      */
     @Transactional
     public TournamentResponse createTournament(TournamentCreateRequest request, User registeredBy) {
+        // 중복 대회 체크
+        if (tournamentRepository.existsByTitleAndTournamentDateAndRegisteredBy(
+                request.getTitle(),
+                request.getTournamentDate(),
+                registeredBy)) {
+            throw new IllegalArgumentException("동일한 제목과 날짜의 대회가 이미 등록되어 있습니다.");
+        }
+
         // 외부 대회일 경우 allowJoin = false 강제
         Boolean isExternal = request.getIsExternal() != null ? request.getIsExternal() : false;
         Boolean allowJoin = isExternal ? false : true;
@@ -174,22 +182,17 @@ public class TournamentService {
      */
     @Transactional(readOnly = true)
     public List<TournamentListResponse> getTournaments(String gender, String playerType, Integer limit) {
-        List<TournamentListResponse> responses = tournamentRepository.findListAll();
+        List<TournamentListResponse> responses;
+        if (gender != null && playerType != null) {
+            responses = tournamentRepository.findListByGenderAndPlayerType(gender, playerType);
+        } else if (gender != null) {
+            responses = tournamentRepository.findListByGender(gender);
+        } else if (playerType != null) {
+            responses = tournamentRepository.findListByPlayerType(playerType);
+        } else {
+            responses = tournamentRepository.findListAll();
+        }
         populatePosterUrls(responses);
-        
-        // gender 필터링 (TournamentListResponse에 gender/playerType 필드 포함됨)
-        if (gender != null) {
-            responses = responses.stream()
-                .filter(r -> gender.equals(r.getGender()))
-                .collect(Collectors.toList());
-        }
-        
-        // playerType 필터링
-        if (playerType != null) {
-            responses = responses.stream()
-                .filter(r -> playerType.equals(r.getPlayerType()))
-                .collect(Collectors.toList());
-        }
         
         // 정렬: limit이 있으면 가까운 날짜순, 없으면 최신순
         LocalDate today = LocalDate.now();

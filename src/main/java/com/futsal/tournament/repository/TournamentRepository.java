@@ -86,6 +86,68 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
     """)
     List<TournamentListResponse> findListByRegisteredBy(@Param("registeredBy") User registeredBy);
 
+    // 목록용 프로젝션: gender/playerType 필터
+    @Query("""
+        SELECT new com.futsal.tournament.dto.TournamentListResponse(
+            t.id,
+            t.title,
+            t.tournamentDate,
+            t.location,
+            t.recruitmentStatus,
+            '',
+            u.nickname,
+            t.gender,
+            t.playerType
+        )
+        FROM Tournament t
+        LEFT JOIN t.registeredBy u
+        WHERE t.gender = :gender
+        ORDER BY t.tournamentDate ASC
+    """)
+    List<TournamentListResponse> findListByGender(@Param("gender") String gender);
+
+    @Query("""
+        SELECT new com.futsal.tournament.dto.TournamentListResponse(
+            t.id,
+            t.title,
+            t.tournamentDate,
+            t.location,
+            t.recruitmentStatus,
+            '',
+            u.nickname,
+            t.gender,
+            t.playerType
+        )
+        FROM Tournament t
+        LEFT JOIN t.registeredBy u
+        WHERE t.playerType = :playerType
+        ORDER BY t.tournamentDate ASC
+    """)
+    List<TournamentListResponse> findListByPlayerType(@Param("playerType") String playerType);
+
+    @Query("""
+        SELECT new com.futsal.tournament.dto.TournamentListResponse(
+            t.id,
+            t.title,
+            t.tournamentDate,
+            t.location,
+            t.recruitmentStatus,
+            '',
+            u.nickname,
+            t.gender,
+            t.playerType
+        )
+        FROM Tournament t
+        LEFT JOIN t.registeredBy u
+        WHERE t.gender = :gender
+          AND t.playerType = :playerType
+        ORDER BY t.tournamentDate ASC
+    """)
+    List<TournamentListResponse> findListByGenderAndPlayerType(
+            @Param("gender") String gender,
+            @Param("playerType") String playerType
+    );
+
     // Phase 2-5: 특정 날짜 이전 대회 조회 (자동 삭제용)
     List<Tournament> findByTournamentDateBefore(LocalDate date);
 
@@ -95,5 +157,12 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
 
     @Query("SELECT t.id, p FROM Tournament t JOIN t.posterUrls p WHERE t.id IN :ids")
     List<Object[]> findPosterUrlsByTournamentIds(@Param("ids") List<Long> ids);
+
+    // 중복 대회 체크
+    boolean existsByTitleAndTournamentDateAndRegisteredBy(
+        String title,
+        LocalDate tournamentDate,
+        User registeredBy
+    );
 
 }
