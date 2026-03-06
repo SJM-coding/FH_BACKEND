@@ -29,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -70,18 +71,50 @@ public class TeamService {
     }
 
     /**
-     * 내가 속한 팀 목록 조회
+     * 내가 속한 팀 목록 조회 (N+1 방지)
      */
     @Transactional(readOnly = true)
     public List<TeamResponse> getMyTeams(User user) {
-        List<TeamMember> myMemberships = teamMemberRepository.findByUserAndStatus(
-                user, 
+        // 1. Team + Captain을 JOIN FETCH로 한 번에 조회
+        List<TeamMember> myMemberships = teamMemberRepository.findByUserAndStatusWithTeam(
+                user,
                 TeamMemberStatus.ACTIVE
         );
-        
+
+        if (myMemberships.isEmpty()) {
+            return List.of();
+        }
+
+        // 2. 팀 ID 목록 추출
+        List<Long> teamIds = myMemberships.stream()
+                .map(tm -> tm.getTeam().getId())
+                .collect(Collectors.toList());
+
+        // 3. 모든 팀의 memberCount를 한 번에 조회
+        Map<Long, Long> memberCountMap = teamMemberRepository
+                .countByTeamIdsAndStatus(teamIds, TeamMemberStatus.ACTIVE)
+                .stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0],
+                        row -> (Long) row[1]
+                ));
+
+        // 4. DTO 변환
         return myMemberships.stream()
-                .map(TeamMember::getTeam)
-                .map(this::toResponse)
+                .map(tm -> {
+                    Team team = tm.getTeam();
+                    int memberCount = memberCountMap.getOrDefault(team.getId(), 0L).intValue();
+                    return new TeamResponse(
+                            team.getId(),
+                            team.getName(),
+                            team.getRegion(),
+                            team.getLogoUrl(),
+                            team.getCaptain().getId(),
+                            team.getCaptain().getNickname(),
+                            memberCount,
+                            team.getCreatedAt()
+                    );
+                })
                 .collect(Collectors.toList());
     }
 
