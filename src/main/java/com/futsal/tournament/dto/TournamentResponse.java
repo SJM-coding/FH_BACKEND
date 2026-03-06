@@ -35,4 +35,5 @@ public class TournamentResponse {
     private LocalDateTime createdAt;
     private Boolean isExternal;
     private String externalUrl;
+    private String shareCode;
 }

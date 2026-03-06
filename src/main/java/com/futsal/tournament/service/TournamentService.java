@@ -172,7 +172,8 @@ public class TournamentService {
                 tournament.getRegisteredBy() != null ? tournament.getRegisteredBy().getNickname() : null,
                 tournament.getCreatedAt(),
                 tournament.getIsExternal(),
-                tournament.getExternalUrl()
+                tournament.getExternalUrl(),
+                tournament.getShareCode()
         );
     }
 
