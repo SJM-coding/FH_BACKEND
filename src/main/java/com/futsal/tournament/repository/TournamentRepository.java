@@ -3,7 +3,9 @@ package com.futsal.tournament.repository;
 import com.futsal.tournament.domain.Tournament;
 import com.futsal.tournament.dto.TournamentListResponse;
 import com.futsal.user.domain.User;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -148,6 +150,32 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
             @Param("playerType") String playerType
     );
 
+    // LIMIT 적용 버전 (Pageable 사용)
+    @Query("""
+        SELECT new com.futsal.tournament.dto.TournamentListResponse(
+            t.id,
+            t.title,
+            t.tournamentDate,
+            t.location,
+            t.recruitmentStatus,
+            '',
+            u.nickname,
+            t.gender,
+            t.playerType
+        )
+        FROM Tournament t
+        LEFT JOIN t.registeredBy u
+        WHERE t.gender = :gender
+          AND t.playerType = :playerType
+          AND t.tournamentDate >= CURRENT_DATE
+        ORDER BY t.tournamentDate ASC
+    """)
+    List<TournamentListResponse> findListByGenderAndPlayerTypeWithLimit(
+            @Param("gender") String gender,
+            @Param("playerType") String playerType,
+            Pageable pageable
+    );
+
     // Phase 2-5: 특정 날짜 이전 대회 조회 (자동 삭제용)
     List<Tournament> findByTournamentDateBefore(LocalDate date);
 
@@ -164,5 +192,10 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
         LocalDate tournamentDate,
         User registeredBy
     );
+
+
+    @Modifying
+    @Query("UPDATE Tournament t SET t.viewCount = t.viewCount + 1 WHERE t.id = :id")
+    void incrementViewCount(@Param("id") Long id);
 
 }

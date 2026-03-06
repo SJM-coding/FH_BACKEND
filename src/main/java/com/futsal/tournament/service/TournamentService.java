@@ -9,6 +9,7 @@ import com.futsal.tournament.domain.TournamentType;
 import com.futsal.user.domain.User;
 import com.futsal.tournament.repository.TournamentRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -177,12 +178,22 @@ public class TournamentService {
 
     /**
      * 대회 목록 조회 (gender, playerType, limit 필터링 가능)
-     * - limit이 있으면 가까운 날짜순으로 정렬
-     * - limit이 없으면 최신순으로 정렬
+     * - limit이 있고 gender/playerType 둘 다 있으면 DB에서 LIMIT 적용
+     * - limit이 없으면 전체 조회 후 최신순 정렬
      */
     @Transactional(readOnly = true)
     public List<TournamentListResponse> getTournaments(String gender, String playerType, Integer limit) {
         List<TournamentListResponse> responses;
+
+        // limit이 있고 gender/playerType 둘 다 있으면 DB 레벨에서 LIMIT 적용
+        if (limit != null && limit > 0 && gender != null && playerType != null) {
+            responses = tournamentRepository.findListByGenderAndPlayerTypeWithLimit(
+                    gender, playerType, PageRequest.of(0, limit));
+            populatePosterUrls(responses);
+            return responses;
+        }
+
+        // 그 외: 전체 조회
         if (gender != null && playerType != null) {
             responses = tournamentRepository.findListByGenderAndPlayerType(gender, playerType);
         } else if (gender != null) {
@@ -193,23 +204,10 @@ public class TournamentService {
             responses = tournamentRepository.findListAll();
         }
         populatePosterUrls(responses);
-        
-        // 정렬: limit이 있으면 가까운 날짜순, 없으면 최신순
-        LocalDate today = LocalDate.now();
-        if (limit != null && limit > 0) {
-            // 가까운 날짜순 (오늘과의 차이 절대값으로 정렬)
-            responses.sort((a, b) -> {
-                long diffA = Math.abs(java.time.temporal.ChronoUnit.DAYS.between(today, a.getTournamentDate()));
-                long diffB = Math.abs(java.time.temporal.ChronoUnit.DAYS.between(today, b.getTournamentDate()));
-                return Long.compare(diffA, diffB);
-            });
-            // limit 개수만 반환
-            return responses.stream().limit(limit).collect(Collectors.toList());
-        } else {
-            // 최신순 (날짜 내림차순)
-            responses.sort((a, b) -> b.getTournamentDate().compareTo(a.getTournamentDate()));
-            return responses;
-        }
+
+        // 최신순 정렬 (날짜 내림차순)
+        responses.sort((a, b) -> b.getTournamentDate().compareTo(a.getTournamentDate()));
+        return responses;
     }
     
     /**
@@ -237,11 +235,10 @@ public class TournamentService {
     public TournamentResponse getTournamentById(Long id) {
         Tournament tournament = tournamentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("대회를 찾을 수 없습니다: " + id));
-        
-        // 조회수 증가
-        tournament.setViewCount(tournament.getViewCount() + 1);
-        tournamentRepository.save(tournament);
-        
+
+        // 조회수 원자적 증가 (race condition 방지)
+        tournamentRepository.incrementViewCount(id);
+
         return toResponse(tournament);
     }
 
