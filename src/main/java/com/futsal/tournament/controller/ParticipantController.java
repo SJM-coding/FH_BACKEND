@@ -29,11 +29,11 @@ public class ParticipantController {
     private final TournamentService tournamentService;
 
     /**
-     * 공유코드 생성
-     * POST /api/tournaments/{id}/share-code
+     * 운영진 코드 생성 (대회 확정 시)
+     * POST /api/tournaments/{id}/staff-code
      */
-    @PostMapping("/{tournamentId}/share-code")
-    public ResponseEntity<?> generateShareCode(
+    @PostMapping("/{tournamentId}/staff-code")
+    public ResponseEntity<?> generateStaffCode(
             @PathVariable Long tournamentId,
             @AuthenticationPrincipal User user
     ) {
@@ -42,21 +42,21 @@ public class ParticipantController {
         }
 
         try {
-            String shareCode = participantService.generateShareCode(tournamentId, user.getId());
-            return ResponseEntity.ok(Map.of("shareCode", shareCode));
+            String staffCode = participantService.generateStaffCode(tournamentId, user.getId());
+            return ResponseEntity.ok(Map.of("staffCode", staffCode));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
     /**
-     * 공유코드로 대회 조회
-     * GET /api/tournaments/by-code/{shareCode}
+     * 참가 코드로 대회 조회 (참가 신청용)
+     * GET /api/tournaments/by-code/{participantCode}
      */
-    @GetMapping("/by-code/{shareCode}")
-    public ResponseEntity<?> getTournamentByCode(@PathVariable String shareCode) {
+    @GetMapping("/by-code/{participantCode}")
+    public ResponseEntity<?> getTournamentByParticipantCode(@PathVariable String participantCode) {
         try {
-            TournamentResponse tournament = tournamentService.getTournamentByShareCode(shareCode);
+            TournamentResponse tournament = tournamentService.getTournamentByParticipantCode(participantCode);
             return ResponseEntity.ok(tournament);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -64,7 +64,21 @@ public class ParticipantController {
     }
 
     /**
-     * 대회 참가 신청
+     * 운영진 코드로 대회 조회 (점수 입력용)
+     * GET /api/tournaments/by-staff-code/{staffCode}
+     */
+    @GetMapping("/by-staff-code/{staffCode}")
+    public ResponseEntity<?> getTournamentByStaffCode(@PathVariable String staffCode) {
+        try {
+            TournamentResponse tournament = tournamentService.getTournamentByStaffCode(staffCode);
+            return ResponseEntity.ok(tournament);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * 대회 참가 신청 (참가 코드 사용)
      * POST /api/tournaments/join
      */
     @PostMapping("/join")
@@ -77,6 +91,7 @@ public class ParticipantController {
         }
 
         try {
+            // shareCode 필드를 참가 코드로 사용 (프론트엔드 호환성 유지)
             TournamentParticipant participant = participantService.joinTournament(
                     request.getShareCode(),
                     request.getTeamId(),

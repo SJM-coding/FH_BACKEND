@@ -179,9 +179,13 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
     // Phase 2-5: 특정 날짜 이전 대회 조회 (자동 삭제용)
     List<Tournament> findByTournamentDateBefore(LocalDate date);
 
-    boolean existsByShareCode(String shareCode);
+    // 참가 코드 관련
+    boolean existsByParticipantCode(String participantCode);
+    java.util.Optional<Tournament> findByParticipantCode(String participantCode);
 
-    java.util.Optional<Tournament> findByShareCode(String shareCode);
+    // 운영진 코드 관련
+    boolean existsByStaffCode(String staffCode);
+    java.util.Optional<Tournament> findByStaffCode(String staffCode);
 
     @Query("SELECT t.id, p FROM Tournament t JOIN t.posterUrls p WHERE t.id IN :ids")
     List<Object[]> findPosterUrlsByTournamentIds(@Param("ids") List<Long> ids);

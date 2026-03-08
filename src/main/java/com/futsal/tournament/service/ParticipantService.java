@@ -13,7 +13,7 @@ import java.security.SecureRandom;
 import java.util.List;
 
 /**
- * 대회 참가 서비스 (공유코드 기반)
+ * 대회 참가 서비스
  */
 @Slf4j
 @Service
@@ -22,58 +22,63 @@ public class ParticipantService {
 
     private final TournamentRepository tournamentRepository;
     private final TournamentParticipantRepository participantRepository;
-    // private final TeamRepository teamRepository; // TODO: 실제 구현 시 추가
+    private final TournamentService tournamentService;
 
-    private static final String SHARE_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 혼동 없는 문자만
-    private static final int SHARE_CODE_LENGTH = 6;
+    private static final String CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    private static final int CODE_LENGTH = 6;
 
     /**
-     * 공유코드 생성
+     * 운영진 코드 생성 (대회 확정 시 호출)
      */
     @Transactional
-    public String generateShareCode(Long tournamentId, Long userId) {
+    public String generateStaffCode(Long tournamentId, Long userId) {
         Tournament tournament = tournamentRepository.findById(tournamentId)
                 .orElseThrow(() -> new RuntimeException("대회를 찾을 수 없습니다: " + tournamentId));
 
         // 권한 확인
         if (tournament.getRegisteredById() == null || !tournament.getRegisteredById().equals(userId)) {
-            throw new RuntimeException("대회 주최자만 공유코드를 생성할 수 있습니다.");
+            throw new RuntimeException("대회 주최자만 운영진 코드를 생성할 수 있습니다.");
         }
 
-        // 이미 공유코드가 있으면 반환
-        if (tournament.getShareCode() != null) {
-            return tournament.getShareCode();
+        // 이미 운영진 코드가 있으면 반환
+        if (tournament.getStaffCode() != null) {
+            return tournament.getStaffCode();
         }
 
-        // 고유한 공유코드 생성
-        String shareCode;
-        do {
-            shareCode = generateRandomCode();
-        } while (tournamentRepository.existsByShareCode(shareCode));
-
-        tournament.setShareCode(shareCode);
+        // 고유한 운영진 코드 생성
+        String staffCode = tournamentService.generateUniqueStaffCode();
+        tournament.setStaffCode(staffCode);
         tournamentRepository.save(tournament);
 
-        log.info("공유코드 생성: 대회 ID={}, 코드={}", tournamentId, shareCode);
-        return shareCode;
+        log.info("운영진 코드 생성: 대회 ID={}, 코드={}", tournamentId, staffCode);
+        return staffCode;
     }
 
     /**
-     * 공유코드로 대회 조회
+     * 참가 코드로 대회 조회 (참가 신청용)
      */
     @Transactional(readOnly = true)
-    public Tournament findByShareCode(String shareCode) {
-        return tournamentRepository.findByShareCode(shareCode)
-                .orElseThrow(() -> new RuntimeException("유효하지 않은 공유코드입니다: " + shareCode));
+    public Tournament findByParticipantCode(String participantCode) {
+        return tournamentRepository.findByParticipantCode(participantCode)
+                .orElseThrow(() -> new RuntimeException("유효하지 않은 참가코드입니다: " + participantCode));
     }
 
     /**
-     * 대회 참가 신청
+     * 운영진 코드로 대회 조회 (점수 입력용)
+     */
+    @Transactional(readOnly = true)
+    public Tournament findByStaffCode(String staffCode) {
+        return tournamentRepository.findByStaffCode(staffCode)
+                .orElseThrow(() -> new RuntimeException("유효하지 않은 운영진코드입니다: " + staffCode));
+    }
+
+    /**
+     * 대회 참가 신청 (참가 코드 사용)
      */
     @Transactional
-    public TournamentParticipant joinTournament(String shareCode, Long teamId, Long userId) {
-        // 공유코드로 대회 조회
-        Tournament tournament = findByShareCode(shareCode);
+    public TournamentParticipant joinTournament(String participantCode, Long teamId, Long userId) {
+        // 참가 코드로 대회 조회
+        Tournament tournament = findByParticipantCode(participantCode);
 
         // 참가 가능 여부 확인
         if (!Boolean.TRUE.equals(tournament.getAllowJoin())) {
@@ -87,7 +92,7 @@ public class ParticipantService {
 
         // 최대 팀 수 확인
         long currentCount = participantRepository.countByTournamentIdAndStatus(
-            tournament.getId(), 
+            tournament.getId(),
             TournamentParticipant.ParticipantStatus.CONFIRMED
         );
         if (currentCount >= tournament.getMaxTeams()) {
@@ -100,15 +105,6 @@ public class ParticipantService {
                     throw new RuntimeException("이미 참가한 팀입니다.");
                 });
 
-        // TODO: Team 정보 조회
-        // Team team = teamRepository.findById(teamId)
-        //         .orElseThrow(() -> new RuntimeException("팀을 찾을 수 없습니다: " + teamId));
-        
-        // TODO: 팀장 권한 확인
-        // if (!team.getCaptain().getId().equals(userId)) {
-        //     throw new RuntimeException("팀장만 대회에 참가 신청할 수 있습니다.");
-        // }
-
         // 참가팀 등록
         TournamentParticipant participant = TournamentParticipant.builder()
                 .tournament(tournament)
@@ -120,10 +116,10 @@ public class ParticipantService {
                 .build();
 
         TournamentParticipant saved = participantRepository.save(participant);
-        
-        log.info("대회 참가 완료: 대회 ID={}, 팀 ID={}, 사용자 ID={}", 
+
+        log.info("대회 참가 완료: 대회 ID={}, 팀 ID={}, 사용자 ID={}",
                 tournament.getId(), teamId, userId);
-        
+
         return saved;
     }
 
@@ -158,20 +154,5 @@ public class ParticipantService {
     @Transactional(readOnly = true)
     public List<TournamentParticipant> getParticipants(Long tournamentId) {
         return participantRepository.findByTournamentIdAndConfirmed(tournamentId);
-    }
-
-    /**
-     * 랜덤 코드 생성
-     */
-    private String generateRandomCode() {
-        SecureRandom random = new SecureRandom();
-        StringBuilder code = new StringBuilder(SHARE_CODE_LENGTH);
-        
-        for (int i = 0; i < SHARE_CODE_LENGTH; i++) {
-            int index = random.nextInt(SHARE_CODE_CHARS.length());
-            code.append(SHARE_CODE_CHARS.charAt(index));
-        }
-        
-        return code.toString();
     }
 }

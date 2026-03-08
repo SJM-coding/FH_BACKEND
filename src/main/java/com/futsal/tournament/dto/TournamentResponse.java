@@ -35,5 +35,6 @@ public class TournamentResponse {
     private LocalDateTime createdAt;
     private Boolean isExternal;
     private String externalUrl;
-    private String shareCode;
+    private String participantCode;  // 참가 신청용 코드
+    private String staffCode;        // 운영진 접근용 코드
 }

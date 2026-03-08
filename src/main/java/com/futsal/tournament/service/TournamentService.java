@@ -13,6 +13,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +21,9 @@ import java.util.stream.Collectors;
 
 @Service
 public class TournamentService {
+
+    private static final String CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    private static final int CODE_LENGTH = 6;
 
     private final TournamentRepository tournamentRepository;
     private final String defaultPosterUrl;
@@ -46,7 +50,13 @@ public class TournamentService {
         // 외부 대회일 경우 allowJoin = false 강제
         Boolean isExternal = request.getIsExternal() != null ? request.getIsExternal() : false;
         Boolean allowJoin = isExternal ? false : true;
-        
+
+        // 참가 코드 생성 (내부 대회만)
+        String participantCode = null;
+        if (!isExternal) {
+            participantCode = generateUniqueParticipantCode();
+        }
+
         Tournament tournament = Tournament.builder()
                 .title(request.getTitle())
                 .tournamentDate(request.getTournamentDate())
@@ -67,6 +77,7 @@ public class TournamentService {
                 .isExternal(isExternal)
                 .externalUrl(request.getExternalUrl())
                 .allowJoin(allowJoin)
+                .participantCode(participantCode)
                 .registeredBy(registeredBy)
                 .build();
 
@@ -173,7 +184,8 @@ public class TournamentService {
                 tournament.getCreatedAt(),
                 tournament.getIsExternal(),
                 tournament.getExternalUrl(),
-                tournament.getShareCode()
+                tournament.getParticipantCode(),
+                tournament.getStaffCode()
         );
     }
 
@@ -244,12 +256,22 @@ public class TournamentService {
     }
 
     /**
-     * 공유코드로 대회 조회 (조회수 증가 없이)
+     * 참가 코드로 대회 조회 (참가 신청용)
      */
     @Transactional(readOnly = true)
-    public TournamentResponse getTournamentByShareCode(String shareCode) {
-        Tournament tournament = tournamentRepository.findByShareCode(shareCode)
-                .orElseThrow(() -> new RuntimeException("유효하지 않은 공유코드입니다: " + shareCode));
+    public TournamentResponse getTournamentByParticipantCode(String participantCode) {
+        Tournament tournament = tournamentRepository.findByParticipantCode(participantCode)
+                .orElseThrow(() -> new RuntimeException("유효하지 않은 참가코드입니다: " + participantCode));
+        return toResponse(tournament);
+    }
+
+    /**
+     * 운영진 코드로 대회 조회 (점수 입력용)
+     */
+    @Transactional(readOnly = true)
+    public TournamentResponse getTournamentByStaffCode(String staffCode) {
+        Tournament tournament = tournamentRepository.findByStaffCode(staffCode)
+                .orElseThrow(() -> new RuntimeException("유효하지 않은 운영진코드입니다: " + staffCode));
         return toResponse(tournament);
     }
 
@@ -297,5 +319,40 @@ public class TournamentService {
                 response.setPosterUrl(posterUrl);
             }
         }
+    }
+
+    /**
+     * 고유한 참가 코드 생성
+     */
+    private String generateUniqueParticipantCode() {
+        String code;
+        do {
+            code = generateRandomCode();
+        } while (tournamentRepository.existsByParticipantCode(code));
+        return code;
+    }
+
+    /**
+     * 고유한 운영진 코드 생성
+     */
+    public String generateUniqueStaffCode() {
+        String code;
+        do {
+            code = generateRandomCode();
+        } while (tournamentRepository.existsByStaffCode(code));
+        return code;
+    }
+
+    /**
+     * 랜덤 코드 생성
+     */
+    private String generateRandomCode() {
+        SecureRandom random = new SecureRandom();
+        StringBuilder code = new StringBuilder(CODE_LENGTH);
+        for (int i = 0; i < CODE_LENGTH; i++) {
+            int index = random.nextInt(CODE_CHARS.length());
+            code.append(CODE_CHARS.charAt(index));
+        }
+        return code.toString();
     }
 }

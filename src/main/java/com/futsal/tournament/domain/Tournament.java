@@ -86,8 +86,19 @@ public class Tournament {
     @Builder.Default
     private String recruitmentStatus = "OPEN"; // 모집 상태: OPEN(모집중), CLOSED(마감)
 
+    /**
+     * 참가 코드: 참가팀이 대회에 참가 신청할 때 사용
+     * 대회 생성 시 자동 생성
+     */
     @Column(length = 8, unique = true)
-    private String shareCode;
+    private String participantCode;
+
+    /**
+     * 운영진 코드: 운영진이 점수 입력 페이지에 접근할 때 사용
+     * 대회 확정 시 생성
+     */
+    @Column(length = 8, unique = true)
+    private String staffCode;
 
     @Column(nullable = false)
     @Builder.Default

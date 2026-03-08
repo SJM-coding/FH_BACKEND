@@ -14,8 +14,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * ShareCode 기반 대진표 접근 API
- * 인증 없이 shareCode만으로 대진표 조회 및 경기 결과 입력 가능
+ * 운영진 코드(StaffCode) 기반 대진표 접근 API
+ * 인증 없이 운영진 코드만으로 대진표 조회 및 경기 결과 입력 가능
  */
 @RestController
 @RequestMapping("/api/share")
@@ -26,16 +26,16 @@ public class ShareCodeController {
     private final BracketService bracketService;
 
     /**
-     * ShareCode로 대회 정보 조회
-     * GET /api/share/{shareCode}
+     * 운영진 코드로 대회 정보 조회
+     * GET /api/share/{staffCode}
      */
-    @GetMapping("/{shareCode}")
-    public ResponseEntity<?> getTournamentInfo(@PathVariable String shareCode) {
-        Tournament tournament = tournamentRepository.findByShareCode(shareCode)
+    @GetMapping("/{staffCode}")
+    public ResponseEntity<?> getTournamentInfo(@PathVariable String staffCode) {
+        Tournament tournament = tournamentRepository.findByStaffCode(staffCode)
                 .orElse(null);
 
         if (tournament == null) {
-            return ResponseEntity.status(404).body(Map.of("error", "유효하지 않은 공유코드입니다."));
+            return ResponseEntity.status(404).body(Map.of("error", "유효하지 않은 운영진코드입니다."));
         }
 
         Map<String, Object> response = new HashMap<>();
@@ -50,16 +50,16 @@ public class ShareCodeController {
     }
 
     /**
-     * ShareCode로 대진표 조회
-     * GET /api/share/{shareCode}/bracket
+     * 운영진 코드로 대진표 조회
+     * GET /api/share/{staffCode}/bracket
      */
-    @GetMapping("/{shareCode}/bracket")
-    public ResponseEntity<?> getBracket(@PathVariable String shareCode) {
-        Tournament tournament = tournamentRepository.findByShareCode(shareCode)
+    @GetMapping("/{staffCode}/bracket")
+    public ResponseEntity<?> getBracket(@PathVariable String staffCode) {
+        Tournament tournament = tournamentRepository.findByStaffCode(staffCode)
                 .orElse(null);
 
         if (tournament == null) {
-            return ResponseEntity.status(404).body(Map.of("error", "유효하지 않은 공유코드입니다."));
+            return ResponseEntity.status(404).body(Map.of("error", "유효하지 않은 운영진코드입니다."));
         }
 
         if (!Boolean.TRUE.equals(tournament.getBracketGenerated())) {
@@ -75,20 +75,20 @@ public class ShareCodeController {
     }
 
     /**
-     * ShareCode로 경기 결과 입력
-     * POST /api/share/{shareCode}/matches/{matchId}/result
+     * 운영진 코드로 경기 결과 입력
+     * POST /api/share/{staffCode}/matches/{matchId}/result
      */
-    @PostMapping("/{shareCode}/matches/{matchId}/result")
+    @PostMapping("/{staffCode}/matches/{matchId}/result")
     public ResponseEntity<?> recordMatchResult(
-            @PathVariable String shareCode,
+            @PathVariable String staffCode,
             @PathVariable Long matchId,
             @RequestBody MatchResultRequest request
     ) {
-        Tournament tournament = tournamentRepository.findByShareCode(shareCode)
+        Tournament tournament = tournamentRepository.findByStaffCode(staffCode)
                 .orElse(null);
 
         if (tournament == null) {
-            return ResponseEntity.status(404).body(Map.of("error", "유효하지 않은 공유코드입니다."));
+            return ResponseEntity.status(404).body(Map.of("error", "유효하지 않은 운영진코드입니다."));
         }
 
         if (!Boolean.TRUE.equals(tournament.getBracketGenerated())) {
