@@ -1,8 +1,10 @@
 package com.futsal.tournament.controller;
 
+import com.futsal.tournament.domain.Tournament;
 import com.futsal.tournament.domain.TournamentParticipant;
 import com.futsal.tournament.dto.ParticipantResponse;
 import com.futsal.tournament.dto.JoinTournamentRequest;
+import com.futsal.tournament.dto.TournamentListResponse;
 import com.futsal.tournament.dto.TournamentResponse;
 import com.futsal.tournament.service.ParticipantService;
 import com.futsal.tournament.service.TournamentService;
@@ -136,6 +138,35 @@ public class ParticipantController {
         List<TournamentParticipant> participants = participantService.getParticipants(tournamentId);
         List<ParticipantResponse> responses = participants.stream()
                 .map(ParticipantResponse::from)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(responses);
+    }
+
+    /**
+     * 내가 참가한 대회 목록 조회
+     * GET /api/tournaments/participated
+     */
+    @GetMapping("/participated")
+    public ResponseEntity<?> getMyParticipatedTournaments(
+            @AuthenticationPrincipal User user
+    ) {
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        List<Tournament> tournaments = participantService.getMyParticipatedTournaments(user.getId());
+        List<TournamentListResponse> responses = tournaments.stream()
+                .map(t -> new TournamentListResponse(
+                        t.getId(),
+                        t.getTitle(),
+                        t.getTournamentDate(),
+                        t.getLocation(),
+                        t.getRecruitmentStatus(),
+                        t.getPosterUrls() != null && !t.getPosterUrls().isEmpty() ? t.getPosterUrls().get(0) : null,
+                        t.getRegisteredBy() != null ? t.getRegisteredBy().getNickname() : null,
+                        t.getGender(),
+                        t.getPlayerType()
+                ))
                 .collect(Collectors.toList());
         return ResponseEntity.ok(responses);
     }

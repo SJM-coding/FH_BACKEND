@@ -155,4 +155,15 @@ public class ParticipantService {
     public List<TournamentParticipant> getParticipants(Long tournamentId) {
         return participantRepository.findByTournamentIdAndConfirmed(tournamentId);
     }
+
+    /**
+     * 내가 참가한 대회 목록 조회
+     */
+    @Transactional(readOnly = true)
+    public List<Tournament> getMyParticipatedTournaments(Long userId) {
+        List<TournamentParticipant> participants = participantRepository.findByRegisteredByWithTournament(userId);
+        return participants.stream()
+                .map(TournamentParticipant::getTournament)
+                .toList();
+    }
 }

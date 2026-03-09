@@ -5,7 +5,7 @@ spring:
 
   sql:
     init:
-      mode: always  # data.sql 자동 로드
+      mode: never  # data.sql 자동 로드
 
   flyway:
     enabled: false

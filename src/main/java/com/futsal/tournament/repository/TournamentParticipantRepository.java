@@ -46,4 +46,15 @@ public interface TournamentParticipantRepository extends JpaRepository<Tournamen
            "AND p.status = 'CONFIRMED' " +
            "ORDER BY p.createdAt DESC")
     List<TournamentParticipant> findByRegisteredBy(@Param("userId") Long userId);
+
+    /**
+     * 사용자가 참가한 대회 목록 조회 (fetch join으로 Tournament와 registeredBy 로드)
+     */
+    @Query("SELECT p FROM TournamentParticipant p " +
+           "JOIN FETCH p.tournament t " +
+           "LEFT JOIN FETCH t.registeredBy " +
+           "WHERE p.registeredBy = :userId " +
+           "AND p.status = 'CONFIRMED' " +
+           "ORDER BY t.tournamentDate DESC")
+    List<TournamentParticipant> findByRegisteredByWithTournament(@Param("userId") Long userId);
 }
