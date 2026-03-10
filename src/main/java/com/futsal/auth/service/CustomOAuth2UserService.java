@@ -62,14 +62,19 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     /**
      * 사용자 저장 또는 업데이트
+     * 커스텀 프로필 이미지가 있으면 카카오 이미지로 덮어쓰지 않음
      */
     private User saveOrUpdate(OAuth2UserInfo userInfo) {
         return userRepository.findByKakaoId(userInfo.getProviderId())
                 .map(existingUser -> {
-                    existingUser.updateProfile(
-                            userInfo.getNickname(),
-                            userInfo.getProfileImageUrl()
-                    );
+                    // 닉네임은 항상 업데이트
+                    existingUser.updateNickname(userInfo.getNickname());
+
+                    // 커스텀 프로필 이미지가 없을 때만 카카오 이미지로 업데이트
+                    if (!existingUser.hasCustomProfileImage()) {
+                        existingUser.updateProfileImage(userInfo.getProfileImageUrl());
+                    }
+
                     return userRepository.save(existingUser);
                 })
                 .orElseGet(() -> {
@@ -79,6 +84,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                             .profileImageUrl(userInfo.getProfileImageUrl())
                             .role(UserRole.PARTICIPANT)
                             .roleSelected(false)
+                            .customProfileImage(false)
                             .build();
                     return userRepository.save(newUser);
                 });

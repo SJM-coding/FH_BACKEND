@@ -24,13 +24,14 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다"));
 
-        // 닉네임과 프로필 이미지 업데이트
+        // 닉네임 업데이트
         if (request.getNickname() != null && !request.getNickname().isBlank()) {
             user.updateNickname(request.getNickname());
         }
 
+        // 프로필 이미지 업데이트 (S3 커스텀 이미지)
         if (request.getProfileImageUrl() != null) {
-            user.updateProfileImage(request.getProfileImageUrl());
+            user.updateCustomProfileImage(request.getProfileImageUrl());
         }
 
         // 변경사항 저장

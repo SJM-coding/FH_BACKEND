@@ -40,7 +40,16 @@ public class User {
     private UserRole role;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean roleSelected = false;
+
+    /**
+     * 사용자가 직접 업로드한 프로필 이미지 여부
+     * true면 카카오 로그인 시 덮어쓰지 않음
+     */
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean customProfileImage = false;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -69,10 +78,25 @@ public class User {
     }
 
     /**
-     * 프로필 이미지 업데이트
+     * 프로필 이미지 업데이트 (카카오 등 외부)
      */
     public void updateProfileImage(String profileImageUrl) {
         this.profileImageUrl = profileImageUrl;
+    }
+
+    /**
+     * 커스텀 프로필 이미지 업데이트 (S3 업로드)
+     */
+    public void updateCustomProfileImage(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
+        this.customProfileImage = true;
+    }
+
+    /**
+     * 커스텀 프로필 이미지 여부
+     */
+    public Boolean hasCustomProfileImage() {
+        return Boolean.TRUE.equals(customProfileImage);
     }
 
     /**
