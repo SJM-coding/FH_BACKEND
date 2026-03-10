@@ -226,6 +226,13 @@ public class TournamentMatch {
     }
 
     /**
+     * 경기 일정 업데이트
+     */
+    public void updateSchedule(LocalDateTime scheduledAt) {
+        this.scheduledAt = scheduledAt;
+    }
+
+    /**
      * 경기가 완료되었는지
      */
     public boolean isFinished() {

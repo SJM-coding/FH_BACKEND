@@ -319,6 +319,27 @@ public class BracketService {
     }
 
     /**
+     * 경기 일정 업데이트
+     */
+    @Transactional
+    @CacheEvict(cacheNames = "bracket", key = "#tournamentId")
+    public MatchResponse updateMatchSchedule(Long tournamentId, Long matchId, MatchScheduleRequest request) {
+        TournamentMatch match = matchRepository.findById(matchId)
+                .orElseThrow(() -> new RuntimeException("경기를 찾을 수 없습니다: " + matchId));
+
+        if (!match.getTournament().getId().equals(tournamentId)) {
+            throw new RuntimeException("대회 정보가 일치하지 않습니다.");
+        }
+
+        match.updateSchedule(request.getScheduledAt());
+
+        TournamentMatch saved = matchRepository.save(match);
+        log.info("경기 일정 업데이트: matchId={}, scheduledAt={}", matchId, request.getScheduledAt());
+
+        return MatchResponse.from(saved);
+    }
+
+    /**
      * 경기 결과 입력
      */
     @Transactional

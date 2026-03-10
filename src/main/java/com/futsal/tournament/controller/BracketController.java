@@ -61,6 +61,29 @@ public class BracketController {
     }
 
     /**
+     * 경기 일정 설정
+     * PUT /api/tournaments/{tournamentId}/bracket/matches/{matchId}/schedule
+     */
+    @PutMapping("/matches/{matchId}/schedule")
+    public ResponseEntity<?> updateMatchSchedule(
+            @PathVariable Long tournamentId,
+            @PathVariable Long matchId,
+            @RequestBody MatchScheduleRequest request,
+            @AuthenticationPrincipal User user
+    ) {
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        try {
+            MatchResponse result = bracketService.updateMatchSchedule(tournamentId, matchId, request);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
      * 경기 결과 입력
      * POST /api/tournaments/{tournamentId}/bracket/matches/{matchId}/result
      */
