@@ -1,15 +1,18 @@
 package com.futsal.team.controller;
 
 import com.futsal.team.service.TeamService;
+import com.futsal.team.dto.TeamAwardResponse;
 import com.futsal.team.dto.TeamCreateRequest;
 import com.futsal.team.dto.TeamInviteCodeResponse;
 import com.futsal.team.dto.TeamInviteRequest;
 import com.futsal.team.dto.TeamMemberPositionRequest;
 import com.futsal.team.dto.TeamMemberResponse;
+import com.futsal.team.dto.TeamParticipationResponse;
 import com.futsal.team.dto.TeamResponse;
 import com.futsal.team.dto.TeamUpdateRequest;
 import com.futsal.team.dto.TacticsSaveRequest;
 import com.futsal.team.dto.TacticsResponse;
+import jakarta.validation.Valid;
 import com.futsal.user.domain.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -207,5 +210,32 @@ public class TeamController {
             return ResponseEntity.noContent().build();
         }
         return ResponseEntity.ok(response);
+    }
+
+    // ============================================
+    // 팀 참가 이력
+    // ============================================
+
+    /**
+     * 팀의 대회 참가 이력 조회
+     */
+    @GetMapping("/{id}/participations")
+    public ResponseEntity<List<TeamParticipationResponse>> getTeamParticipations(@PathVariable Long id) {
+        List<TeamParticipationResponse> participations = teamService.getTeamParticipations(id);
+        return ResponseEntity.ok(participations);
+    }
+
+    // ============================================
+    // 팀 수상 경력
+    // ============================================
+
+    /**
+     * 팀 수상 경력 목록 조회
+     * (수상 경력은 대회 결과 입력 시 자동 생성됨)
+     */
+    @GetMapping("/{id}/awards")
+    public ResponseEntity<List<TeamAwardResponse>> getTeamAwards(@PathVariable Long id) {
+        List<TeamAwardResponse> awards = teamService.getTeamAwards(id);
+        return ResponseEntity.ok(awards);
     }
 }

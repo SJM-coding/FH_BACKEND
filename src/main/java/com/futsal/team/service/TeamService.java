@@ -4,25 +4,31 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.futsal.team.domain.Team;
+import com.futsal.team.domain.TeamAward;
 import com.futsal.team.domain.TeamMember;
 import com.futsal.team.domain.TeamTactics;
 import com.futsal.user.domain.User;
 import com.futsal.team.domain.PlayerPosition;
 import com.futsal.team.domain.TeamMemberRole;
 import com.futsal.team.domain.TeamMemberStatus;
+import com.futsal.team.dto.TeamAwardResponse;
 import com.futsal.team.dto.TeamCreateRequest;
 import com.futsal.team.dto.TeamInviteCodeResponse;
 import com.futsal.team.dto.TeamInviteRequest;
 import com.futsal.team.dto.TeamMemberPositionRequest;
 import com.futsal.team.dto.TeamMemberResponse;
+import com.futsal.team.dto.TeamParticipationResponse;
 import com.futsal.team.dto.TeamResponse;
 import com.futsal.team.dto.TeamUpdateRequest;
 import com.futsal.team.dto.TacticsPlayerPosition;
 import com.futsal.team.dto.TacticsSaveRequest;
 import com.futsal.team.dto.TacticsResponse;
+import com.futsal.team.repository.TeamAwardRepository;
 import com.futsal.team.repository.TeamMemberRepository;
 import com.futsal.team.repository.TeamRepository;
 import com.futsal.team.repository.TeamTacticsRepository;
+import com.futsal.tournament.domain.TournamentParticipant;
+import com.futsal.tournament.repository.TournamentParticipantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +47,8 @@ public class TeamService {
     private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final TeamTacticsRepository teamTacticsRepository;
+    private final TeamAwardRepository teamAwardRepository;
+    private final TournamentParticipantRepository participantRepository;
     private final ObjectMapper objectMapper;
 
     /**
@@ -362,6 +370,49 @@ public class TeamService {
         
         return tactics.map(this::toTacticsResponse).orElse(null);
     }
+
+    // ============================================
+    // 팀 참가 이력 조회
+    // ============================================
+
+    /**
+     * 팀의 대회 참가 이력 조회
+     */
+    @Transactional(readOnly = true)
+    public List<TeamParticipationResponse> getTeamParticipations(Long teamId) {
+        // 팀 존재 확인
+        teamRepository.findById(teamId)
+                .orElseThrow(() -> new RuntimeException("팀을 찾을 수 없습니다: " + teamId));
+
+        List<TournamentParticipant> participations = participantRepository.findConfirmedByTeamId(teamId);
+        return participations.stream()
+                .map(TeamParticipationResponse::from)
+                .collect(Collectors.toList());
+    }
+
+    // ============================================
+    // 팀 수상 경력 관리
+    // ============================================
+
+    /**
+     * 팀 수상 경력 목록 조회
+     * (수상 경력은 대회 결과 입력 시 자동 생성됨)
+     */
+    @Transactional(readOnly = true)
+    public List<TeamAwardResponse> getTeamAwards(Long teamId) {
+        // 팀 존재 확인
+        teamRepository.findById(teamId)
+                .orElseThrow(() -> new RuntimeException("팀을 찾을 수 없습니다: " + teamId));
+
+        List<TeamAward> awards = teamAwardRepository.findByTeamId(teamId);
+        return awards.stream()
+                .map(TeamAwardResponse::from)
+                .collect(Collectors.toList());
+    }
+
+    // ============================================
+    // 변환 메서드
+    // ============================================
 
     private TeamResponse toResponse(Team team) {
         int memberCount = teamMemberRepository.countByTeamAndStatus(

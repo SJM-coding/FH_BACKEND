@@ -3,9 +3,12 @@ package com.futsal.tournament.controller;
 import com.futsal.tournament.dto.TournamentCreateRequest;
 import com.futsal.tournament.dto.TournamentResponse;
 import com.futsal.tournament.dto.TournamentListResponse;
+import com.futsal.tournament.dto.TournamentResultRequest;
+import com.futsal.tournament.dto.TournamentResultResponse;
 import com.futsal.tournament.dto.TournamentUpdateRequest;
 import com.futsal.user.domain.User;
 import com.futsal.common.storage.S3Service;
+import com.futsal.tournament.service.TournamentResultService;
 import com.futsal.tournament.service.TournamentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +27,7 @@ import java.util.List;
 public class TournamentController {
 
     private final TournamentService tournamentService;
+    private final TournamentResultService resultService;
     private final S3Service s3Service;
 
     /**
@@ -147,6 +151,54 @@ public class TournamentController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         tournamentService.deleteTournament(id, user);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ============================================
+    // 대회 결과 (순위) 관리
+    // ============================================
+
+    /**
+     * 대회 결과 입력 (개최자만 가능)
+     * 자동으로 팀 수상 경력 생성
+     * POST /api/tournaments/{id}/results
+     */
+    @PostMapping("/{id}/results")
+    public ResponseEntity<List<TournamentResultResponse>> recordResults(
+            @PathVariable Long id,
+            @Valid @RequestBody TournamentResultRequest request,
+            @AuthenticationPrincipal User user
+    ) {
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        List<TournamentResultResponse> results = resultService.recordResults(id, request, user);
+        return ResponseEntity.ok(results);
+    }
+
+    /**
+     * 대회 결과 조회
+     * GET /api/tournaments/{id}/results
+     */
+    @GetMapping("/{id}/results")
+    public ResponseEntity<List<TournamentResultResponse>> getResults(@PathVariable Long id) {
+        List<TournamentResultResponse> results = resultService.getResults(id);
+        return ResponseEntity.ok(results);
+    }
+
+    /**
+     * 대회 결과 삭제 (개최자만 가능)
+     * DELETE /api/tournaments/{id}/results
+     */
+    @DeleteMapping("/{id}/results")
+    public ResponseEntity<Void> deleteResults(
+            @PathVariable Long id,
+            @AuthenticationPrincipal User user
+    ) {
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        resultService.deleteResults(id, user);
         return ResponseEntity.noContent().build();
     }
 }
