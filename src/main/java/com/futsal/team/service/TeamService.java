@@ -131,7 +131,7 @@ public class TeamService {
      */
     @Transactional(readOnly = true)
     public TeamResponse getTeamById(Long teamId) {
-        Team team = teamRepository.findById(teamId)
+        Team team = teamRepository.findByIdWithCaptain(teamId)
                 .orElseThrow(() -> new RuntimeException("팀을 찾을 수 없습니다: " + teamId));
         return toResponse(team);
     }
@@ -141,11 +141,12 @@ public class TeamService {
      */
     @Transactional(readOnly = true)
     public List<TeamMemberResponse> getTeamMembers(Long teamId) {
-        Team team = teamRepository.findById(teamId)
-                .orElseThrow(() -> new RuntimeException("팀을 찾을 수 없습니다: " + teamId));
+        if (!teamRepository.existsById(teamId)) {
+            throw new RuntimeException("팀을 찾을 수 없습니다: " + teamId);
+        }
         
-        List<TeamMember> members = teamMemberRepository.findByTeamAndStatus(
-                team, 
+        List<TeamMember> members = teamMemberRepository.findByTeamIdAndStatusWithUser(
+                teamId,
                 TeamMemberStatus.ACTIVE
         );
         

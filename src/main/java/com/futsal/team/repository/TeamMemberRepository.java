@@ -22,6 +22,19 @@ public interface TeamMemberRepository extends JpaRepository<TeamMember, Long> {
      * 팀의 활성 멤버만 조회
      */
     List<TeamMember> findByTeamAndStatus(Team team, TeamMemberStatus status);
+
+    /**
+     * 팀 활성 멤버 + 사용자 함께 조회 (N+1 방지)
+     */
+    @Query("""
+        SELECT tm FROM TeamMember tm
+        JOIN FETCH tm.user
+        WHERE tm.team.id = :teamId AND tm.status = :status
+    """)
+    List<TeamMember> findByTeamIdAndStatusWithUser(
+        @Param("teamId") Long teamId,
+        @Param("status") TeamMemberStatus status
+    );
     
     /**
      * 사용자가 속한 팀 조회

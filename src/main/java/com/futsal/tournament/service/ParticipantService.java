@@ -1,5 +1,7 @@
 package com.futsal.tournament.service;
 
+import com.futsal.team.domain.Team;
+import com.futsal.team.repository.TeamRepository;
 import com.futsal.tournament.domain.Tournament;
 import com.futsal.tournament.domain.TournamentParticipant;
 import com.futsal.tournament.repository.TournamentParticipantRepository;
@@ -23,6 +25,7 @@ public class ParticipantService {
     private final TournamentRepository tournamentRepository;
     private final TournamentParticipantRepository participantRepository;
     private final TournamentService tournamentService;
+    private final TeamRepository teamRepository;
 
     private static final String CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     private static final int CODE_LENGTH = 6;
@@ -105,12 +108,16 @@ public class ParticipantService {
                     throw new RuntimeException("이미 참가한 팀입니다.");
                 });
 
+        // 팀 정보 조회
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new RuntimeException("팀을 찾을 수 없습니다: " + teamId));
+
         // 참가팀 등록
         TournamentParticipant participant = TournamentParticipant.builder()
                 .tournament(tournament)
                 .teamId(teamId)
-                .teamName("Team " + teamId) // TODO: 실제 팀 이름
-                .teamLogoUrl(null) // TODO: 실제 팀 로고
+                .teamName(team.getName())
+                .teamLogoUrl(team.getLogoUrl())
                 .registeredBy(userId)
                 .status(TournamentParticipant.ParticipantStatus.CONFIRMED)
                 .build();
