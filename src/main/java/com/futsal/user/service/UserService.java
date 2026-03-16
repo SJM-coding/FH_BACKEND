@@ -37,13 +37,14 @@ public class UserService {
         // 변경사항 저장
         User updated = userRepository.save(user);
 
-        // 응답 생성
+        // 응답 생성 (프로필 업데이트하는 사용자는 이미 활성 사용자이므로 roleSelected = true)
         Map<String, Object> response = new HashMap<>();
         response.put("id", updated.getId());
         response.put("kakaoId", updated.getKakaoId());
         response.put("nickname", updated.getNickname());
         response.put("profileImageUrl", updated.getProfileImageUrl());
         response.put("role", updated.getRole());
+        response.put("roleSelected", true);
 
         return response;
     }

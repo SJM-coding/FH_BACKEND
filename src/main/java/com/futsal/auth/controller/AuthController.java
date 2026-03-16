@@ -91,13 +91,19 @@ public class AuthController {
             return ResponseEntity.status(401).build();
         }
 
+        // roleSelected가 null인 경우 true로 처리 (기존 사용자 호환)
+        Boolean roleSelected = user.getRoleSelected();
+        if (roleSelected == null) {
+            roleSelected = true;
+        }
+
         Map<String, Object> response = new HashMap<>();
         response.put("id", user.getId());
         response.put("kakaoId", user.getKakaoId());
         response.put("nickname", user.getNickname());
         response.put("profileImageUrl", user.getProfileImageUrl());
         response.put("role", user.getRole());
-        response.put("roleSelected", user.getRoleSelected());
+        response.put("roleSelected", roleSelected);
 
         return ResponseEntity.ok(response);
     }

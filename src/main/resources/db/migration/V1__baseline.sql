@@ -6,6 +6,7 @@ CREATE TABLE users (
     nickname VARCHAR(50) NOT NULL,
     profile_image_url VARCHAR(500),
     role VARCHAR(20) NOT NULL,
+    role_selected BOOLEAN NOT NULL DEFAULT FALSE,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
