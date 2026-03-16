@@ -1,0 +1,33 @@
+# application.yml (기본 설정)
+spring:
+  application:
+    name: futsal-tournament
+
+  sql:
+    init:
+      mode: never  # data.sql 자동 로드
+
+  flyway:
+    enabled: false
+
+  jpa:
+    hibernate:
+      ddl-auto: create
+    show-sql: false
+    properties:
+      hibernate:
+        format_logger_sql: true
+
+  # 파일 업로드 크기 제한 설정
+  servlet:
+    multipart:
+      max-file-size: 10MB      # 단일 파일 최대 크기
+      max-request-size: 10MB   # 전체 요청 최대 크기
+      enabled: true
+
+server:
+  port: 8080
+
+app:
+  poster:
+    default-url: ${DEFAULT_POSTER_URL:/static/images/default-poster.png}

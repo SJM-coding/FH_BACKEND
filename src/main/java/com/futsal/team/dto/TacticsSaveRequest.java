@@ -1,0 +1,18 @@
+package com.futsal.team.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
+
+/**
+ * 전술 저장 요청 DTO
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class TacticsSaveRequest {
+    private String formation;
+    private List<TacticsPlayerPosition> players;
+}

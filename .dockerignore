@@ -1,0 +1,29 @@
+# Build outputs
+build/
+.gradle/
+out/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Git
+.git/
+.gitignore
+
+# Docs
+*.md
+LICENSE
+
+# Environment
+.env
+.env.*
+
+# Test
+src/test/
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml

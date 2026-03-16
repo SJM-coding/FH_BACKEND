@@ -1,0 +1,53 @@
+# application-prod.yml (프로드 환경 - AWS RDS)
+# ⚠️ 실제 값은 환경변수로 주입받아야 합니다
+spring:
+  cache:
+    type: redis
+  datasource:
+    url: ${DB_URL}                          # jdbc:mysql://{RDS endpoint}:3306/futsaldb
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+
+aws:
+  region: ${AWS_REGION:ap-northeast-2}
+  s3:
+    bucket: ${S3_BUCKET}
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS}
+  jwt:
+    secret: ${JWT_SECRET}
+    access-token-validity-ms: ${JWT_ACCESS_MS:3600000}
+    refresh-token-validity-ms: ${JWT_REFRESH_MS:604800000}
+    access-cookie-name: ${JWT_ACCESS_COOKIE_NAME:accessToken}
+    refresh-cookie-name: ${JWT_REFRESH_COOKIE_NAME:refreshToken}
+    cookie-domain: ${JWT_COOKIE_DOMAIN:}
+    cookie-path: /
+    cookie-secure: true
+    cookie-same-site: ${JWT_COOKIE_SAMESITE:Lax}
+  oauth2:
+    redirect-uri: ${OAUTH2_REDIRECT_URI}
+
+server:
+  ssl:
+    enabled: ${SSL_ENABLED:true}
+    key-store: ${SSL_KEY_STORE:}
+    key-store-password: ${SSL_KEY_STORE_PASSWORD:}
+    key-store-type: ${SSL_KEY_STORE_TYPE:PKCS12}
+    key-alias: ${SSL_KEY_ALIAS:}
