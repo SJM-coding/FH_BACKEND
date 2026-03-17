@@ -11,7 +11,7 @@ env:
   ECR_REPOSITORY: amfutsalhub/backend
   ECS_CLUSTER: amfutsalhub-cluster
   ECS_SERVICE: amfutsalhub-backend-task-service-69yalh3j
-  ECS_TASK_DEFINITION: amfutsalhub-backend-task:5
+  ECS_TASK_DEFINITION: amfutsalhub-backend-task
 
 jobs:
   # 빌드 및 테스트
