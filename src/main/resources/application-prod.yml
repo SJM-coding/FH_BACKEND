@@ -1,18 +1,39 @@
-# application-prod.yml (프로드 환경 - AWS RDS)
+# application-prod.yml (프로드 환경)
 # ⚠️ 실제 값은 환경변수로 주입받아야 합니다
 spring:
-  cache:
-    type: redis
   datasource:
-    url: ${DB_URL}                          # jdbc:mysql://{RDS endpoint}:3306/futsaldb
+    url: ${DB_URL}
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+
   data:
     redis:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
+
+  cache:
+    type: redis
+
+  security:
+    oauth2:
+      client:
+        registration:
+          kakao:
+            client-id: ${KAKAO_CLIENT_ID}
+            client-secret: ${KAKAO_CLIENT_SECRET}
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            authorization-grant-type: authorization_code
+            client-authentication-method: client_secret_post
+            scope:
+              - profile_nickname
+              - profile_image
+        provider:
+          kakao:
+            authorization-uri: https://kauth.kakao.com/oauth/authorize
+            token-uri: https://kauth.kakao.com/oauth/token
+            user-info-uri: https://kapi.kakao.com/v2/user/me
+            user-name-attribute: id
 
   flyway:
     enabled: true
@@ -45,9 +66,4 @@ app:
     redirect-uri: ${OAUTH2_REDIRECT_URI}
 
 server:
-  ssl:
-    enabled: ${SSL_ENABLED:true}
-    key-store: ${SSL_KEY_STORE:}
-    key-store-password: ${SSL_KEY_STORE_PASSWORD:}
-    key-store-type: ${SSL_KEY_STORE_TYPE:PKCS12}
-    key-alias: ${SSL_KEY_ALIAS:}
+  port: 8080
