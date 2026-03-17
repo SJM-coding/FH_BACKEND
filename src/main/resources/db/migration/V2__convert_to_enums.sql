@@ -28,3 +28,11 @@ ALTER TABLE tournament_matches
 -- team_awards.award_type
 ALTER TABLE team_awards
     MODIFY COLUMN award_type ENUM('CHAMPION','RUNNER_UP','THIRD_PLACE','FOURTH_PLACE','PARTICIPATION') NOT NULL;
+
+-- tournament_participants.status
+ALTER TABLE tournament_participants
+    MODIFY COLUMN status ENUM('CONFIRMED','WITHDRAWN') NOT NULL DEFAULT 'CONFIRMED';
+
+-- tournament_results.award_type
+ALTER TABLE tournament_results
+    MODIFY COLUMN award_type ENUM('CHAMPION','RUNNER_UP','THIRD_PLACE','FOURTH_PLACE','PARTICIPATION') NOT NULL;

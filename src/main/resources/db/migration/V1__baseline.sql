@@ -169,3 +169,36 @@ CREATE TABLE team_awards (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE INDEX idx_team_awards_team_id ON team_awards(team_id);
+
+CREATE TABLE tournament_participants (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tournament_id BIGINT NOT NULL,
+    team_id BIGINT NOT NULL,
+    team_name VARCHAR(100) NOT NULL,
+    team_logo_url VARCHAR(500),
+    registered_by BIGINT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'CONFIRMED',
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    CONSTRAINT fk_tournament_participants_tournament
+        FOREIGN KEY (tournament_id) REFERENCES tournaments(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE INDEX idx_tournament_participants_tournament_id ON tournament_participants(tournament_id);
+CREATE INDEX idx_tournament_participants_team_id ON tournament_participants(team_id);
+
+CREATE TABLE tournament_results (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tournament_id BIGINT NOT NULL,
+    team_id BIGINT NOT NULL,
+    team_name VARCHAR(100) NOT NULL,
+    `rank` INT NOT NULL,
+    award_type VARCHAR(20) NOT NULL,
+    created_at DATETIME NOT NULL,
+    CONSTRAINT fk_tournament_results_tournament
+        FOREIGN KEY (tournament_id) REFERENCES tournaments(id) ON DELETE CASCADE,
+    CONSTRAINT uq_tournament_results_team UNIQUE (tournament_id, team_id),
+    CONSTRAINT uq_tournament_results_rank UNIQUE (tournament_id, `rank`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE INDEX idx_tournament_results_tournament_id ON tournament_results(tournament_id);
