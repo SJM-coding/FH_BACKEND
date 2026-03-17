@@ -7,6 +7,7 @@ CREATE TABLE users (
     profile_image_url VARCHAR(500),
     role VARCHAR(20) NOT NULL,
     role_selected BOOLEAN NOT NULL DEFAULT FALSE,
+    custom_profile_image BOOLEAN NOT NULL DEFAULT FALSE,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -23,8 +24,11 @@ CREATE TABLE tournaments (
     original_link VARCHAR(500) NOT NULL,
     tournament_type VARCHAR(30) NOT NULL DEFAULT 'SINGLE_ELIMINATION',
     max_teams INT NOT NULL DEFAULT 16,
-    share_code VARCHAR(8) UNIQUE,
+    participant_code VARCHAR(8) UNIQUE,
+    staff_code VARCHAR(8) UNIQUE,
     allow_join BOOLEAN NOT NULL DEFAULT TRUE,
+    is_external BOOLEAN NOT NULL DEFAULT FALSE,
+    external_url VARCHAR(500),
     group_count INT,
     teams_per_group INT,
     swiss_rounds INT,
@@ -123,10 +127,10 @@ CREATE TABLE tournament_matches (
     group_id VARCHAR(10),
     team1_id BIGINT,
     team2_id BIGINT,
-    team1_score INT,
-    team2_score INT,
-    team1_penalty_score INT,
-    team2_penalty_score INT,
+    team1score INT,
+    team2score INT,
+    team1penalty_score INT,
+    team2penalty_score INT,
     winner_id BIGINT,
     status VARCHAR(20) NOT NULL,
     scheduled_at DATETIME,
@@ -149,3 +153,19 @@ CREATE INDEX idx_tournament_matches_tournament_id
 
 CREATE INDEX idx_tournament_matches_round
     ON tournament_matches(tournament_id, round);
+
+CREATE TABLE team_awards (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    team_id BIGINT NOT NULL,
+    tournament_id BIGINT,
+    tournament_name VARCHAR(100),
+    award_type VARCHAR(20) NOT NULL,
+    award_date DATE NOT NULL,
+    description VARCHAR(200),
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    CONSTRAINT fk_team_awards_team
+        FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE INDEX idx_team_awards_team_id ON team_awards(team_id);
