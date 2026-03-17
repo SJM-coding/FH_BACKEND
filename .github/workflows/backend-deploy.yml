@@ -10,7 +10,7 @@ env:
   AWS_REGION: ap-northeast-2
   ECR_REPOSITORY: amfutsalhub/backend
   ECS_CLUSTER: amfutsalhub-cluster
-  ECS_SERVICE: amfutsalhub-backend-service
+  ECS_SERVICE: amfutsalhub-backend-task-service-69yalh3j
   ECS_TASK_DEFINITION: amfutsalhub-backend-task
 
 jobs:
