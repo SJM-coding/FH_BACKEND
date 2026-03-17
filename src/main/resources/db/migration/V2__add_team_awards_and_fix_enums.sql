@@ -19,7 +19,8 @@ CREATE INDEX idx_team_awards_team_id ON team_awards(team_id);
 
 -- 2. Fix all VARCHAR columns that should be ENUM types
 
--- users.role
+-- users.role (기존 USER → PARTICIPANT 변환)
+UPDATE users SET role = 'PARTICIPANT' WHERE role = 'USER';
 ALTER TABLE users
     MODIFY COLUMN role ENUM('PARTICIPANT','ORGANIZER','ADMIN') NOT NULL;
 
