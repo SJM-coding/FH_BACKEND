@@ -1,6 +1,10 @@
 package com.futsal.config;
 
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -22,5 +26,20 @@ public class CorsConfig implements WebMvcConfigurer {
                 .exposedHeaders(properties.getExposedHeaders().toArray(new String[0]))
                 .allowCredentials(properties.isAllowCredentials())
                 .maxAge(properties.getMaxAge());
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(properties.getAllowedOrigins());
+        configuration.setAllowedMethods(properties.getAllowedMethods());
+        configuration.setAllowedHeaders(properties.getAllowedHeaders());
+        configuration.setExposedHeaders(properties.getExposedHeaders());
+        configuration.setAllowCredentials(properties.isAllowCredentials());
+        configuration.setMaxAge(properties.getMaxAge());
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 }
