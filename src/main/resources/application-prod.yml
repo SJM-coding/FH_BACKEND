@@ -51,7 +51,8 @@ aws:
 
 app:
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS}
+    allowed-origins:
+      - ${CORS_ALLOWED_ORIGINS}
   jwt:
     secret: ${JWT_SECRET}
     access-token-validity-ms: ${JWT_ACCESS_MS:3600000}
