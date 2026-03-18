@@ -44,6 +44,8 @@ public class SecurityConfig {
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
             .authorizeHttpRequests(auth -> {
+                // 헬스체크
+                auth.requestMatchers("/actuator/**").permitAll();
                 // 공개 API
                 auth.requestMatchers(HttpMethod.GET, "/api/tournaments/**").permitAll();
                 auth.requestMatchers("/api/auth/refresh").permitAll();
