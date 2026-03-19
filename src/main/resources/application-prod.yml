@@ -22,7 +22,7 @@ spring:
           kakao:
             client-id: ${KAKAO_CLIENT_ID}
             client-secret: ${KAKAO_CLIENT_SECRET}
-            redirect-uri: ${KAKAO_REDIRECT_URI}
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
             authorization-grant-type: authorization_code
             client-authentication-method: client_secret_post
             scope:
@@ -68,4 +68,3 @@ app:
 
 server:
   port: 8080
-  forward-headers-strategy: framework
