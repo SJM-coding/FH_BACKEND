@@ -56,12 +56,10 @@ public class Tournament {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
-    @Builder.Default
-    private TournamentType tournamentType = TournamentType.SINGLE_ELIMINATION;
+    private TournamentType tournamentType;
 
     @Column(nullable = false)
-    @Builder.Default
-    private Integer maxTeams = 16;
+    private Integer maxTeams;
 
     @Column
     private Integer groupCount;

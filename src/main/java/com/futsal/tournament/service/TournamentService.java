@@ -57,6 +57,19 @@ public class TournamentService {
             participantCode = generateUniqueParticipantCode();
         }
 
+        // 외부 대회: EXTERNAL 타입, maxTeams=0 / 내부 대회: 요청값 또는 기본값
+        TournamentType tournamentType;
+        Integer maxTeams;
+        if (isExternal) {
+            tournamentType = TournamentType.EXTERNAL;
+            maxTeams = 0;
+        } else {
+            tournamentType = request.getTournamentType() != null
+                    ? request.getTournamentType()
+                    : TournamentType.SINGLE_ELIMINATION;
+            maxTeams = request.getMaxTeams() != null ? request.getMaxTeams() : 16;
+        }
+
         Tournament tournament = Tournament.builder()
                 .title(request.getTitle())
                 .tournamentDate(request.getTournamentDate())
@@ -66,10 +79,8 @@ public class TournamentService {
                 .description(request.getDescription())
                 .viewCount(0)
                 .originalLink(request.getOriginalLink())
-                .tournamentType(request.getTournamentType() != null
-                        ? request.getTournamentType()
-                        : TournamentType.SINGLE_ELIMINATION)
-                .maxTeams(request.getMaxTeams() != null ? request.getMaxTeams() : 16)
+                .tournamentType(tournamentType)
+                .maxTeams(maxTeams)
                 .groupCount(request.getGroupCount())
                 .teamsPerGroup(request.getTeamsPerGroup())
                 .swissRounds(request.getSwissRounds())
@@ -115,8 +126,10 @@ public class TournamentService {
         if (request.getSwissRounds() != null) tournament.setSwissRounds(request.getSwissRounds());
         if (request.getIsExternal() != null) {
             tournament.setIsExternal(request.getIsExternal());
-            // 외부 대회로 변경 시 allowJoin = false
             if (request.getIsExternal()) {
+                // 외부 대회로 변경 시: EXTERNAL 타입, maxTeams=0, allowJoin=false
+                tournament.setTournamentType(TournamentType.EXTERNAL);
+                tournament.setMaxTeams(0);
                 tournament.setAllowJoin(false);
             }
         }
@@ -171,7 +184,7 @@ public class TournamentService {
                 tournament.getDescription(),
                 tournament.getViewCount(),
                 tournament.getOriginalLink(),
-                tournament.getTournamentType() != null ? tournament.getTournamentType().name() : null,
+                tournament.getTournamentType().name(),
                 tournament.getMaxTeams(),
                 tournament.getGroupCount(),
                 tournament.getTeamsPerGroup(),
