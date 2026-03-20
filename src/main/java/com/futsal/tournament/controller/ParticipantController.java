@@ -164,8 +164,10 @@ public class ParticipantController {
                         t.getRecruitmentStatus(),
                         t.getPosterUrls() != null && !t.getPosterUrls().isEmpty() ? t.getPosterUrls().get(0) : null,
                         t.getRegisteredBy() != null ? t.getRegisteredBy().getNickname() : null,
+                        t.getRegisteredBy() != null ? t.getRegisteredBy().getProfileImageUrl() : null,
                         t.getGender(),
-                        t.getPlayerType()
+                        t.getPlayerType(),
+                        t.getIsExternal()
                 ))
                 .collect(Collectors.toList());
         return ResponseEntity.ok(responses);

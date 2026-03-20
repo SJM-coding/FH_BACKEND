@@ -20,6 +20,8 @@ public class TournamentListResponse {
     private String recruitmentStatus;
     private String posterUrl; // 첫 번째 포스터만
     private String registeredByName;
+    private String registeredByProfileImage;
     private Gender gender;
     private PlayerType playerType;
+    private Boolean isExternal;
 }
