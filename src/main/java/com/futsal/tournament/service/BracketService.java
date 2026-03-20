@@ -61,7 +61,9 @@ public class BracketService {
 
         // MANUAL 타입: 이미지 URL만 반환
         if (tournament.isManualBracket()) {
-            log.info("수동 대진표 조회: {}개 이미지", tournament.getBracketImageUrls().size());
+            // Hibernate 프록시가 아닌 새 ArrayList로 복사 (Redis 캐시 직렬화 문제 방지)
+            List<String> imageUrls = new ArrayList<>(tournament.getBracketImageUrls());
+            log.info("수동 대진표 조회: {}개 이미지", imageUrls.size());
             return BracketResponse.builder()
                     .tournamentId(tournament.getId())
                     .tournamentTitle(tournament.getTitle())
@@ -69,7 +71,7 @@ public class BracketService {
                             ? tournament.getTournamentType().name() : null)
                     .bracketType(BracketType.MANUAL.name())
                     .bracketGenerated(true)
-                    .bracketImageUrls(tournament.getBracketImageUrls())
+                    .bracketImageUrls(imageUrls)
                     .build();
         }
 
