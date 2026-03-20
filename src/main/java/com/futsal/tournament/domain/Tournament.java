@@ -54,7 +54,7 @@ public class Tournament {
     private int viewCount;
 
     @Column(nullable = false, length = 500)
-    private String originalLink; // 원본 사이트 링크
+    private String originalLink = ""; // 참고 링크 (선택, 빈 문자열 허용)
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)

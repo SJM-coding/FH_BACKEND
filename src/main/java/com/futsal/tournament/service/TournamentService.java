@@ -80,7 +80,7 @@ public class TournamentService {
                 .gender(request.getGender())
                 .description(request.getDescription())
                 .viewCount(0)
-                .originalLink(request.getOriginalLink())
+                .originalLink(request.getOriginalLink() != null ? request.getOriginalLink() : "")
                 .tournamentType(tournamentType)
                 .maxTeams(maxTeams)
                 .groupCount(request.getGroupCount())

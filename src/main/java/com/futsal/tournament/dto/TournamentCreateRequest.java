@@ -35,8 +35,7 @@ public class TournamentCreateRequest {
     @NotBlank(message = "설명은 필수입니다")
     private String description;
 
-    @NotBlank(message = "원본 링크는 필수입니다")
-    private String originalLink;
+    private String originalLink; // 선택사항
 
     private TournamentType tournamentType;
     private Integer maxTeams;
