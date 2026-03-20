@@ -39,11 +39,13 @@ public class Tournament {
     @Column(nullable = false, length = 100)
     private String location;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private String playerType; // 비선출/선출
+    private PlayerType playerType;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
-    private String gender; // 남자/여자
+    private Gender gender;
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String description;

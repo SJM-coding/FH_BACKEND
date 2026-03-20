@@ -1,5 +1,7 @@
 package com.futsal.tournament.dto;
 
+import com.futsal.tournament.domain.Gender;
+import com.futsal.tournament.domain.PlayerType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -17,8 +19,8 @@ public class TournamentResponse {
     private String title;
     private LocalDate tournamentDate;
     private String location;
-    private String playerType;
-    private String gender;
+    private PlayerType playerType;
+    private Gender gender;
     private String description;
     private int viewCount;
     private String originalLink;

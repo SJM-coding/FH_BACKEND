@@ -1,13 +1,15 @@
 package com.futsal.tournament.service;
 
+import com.futsal.tournament.domain.Gender;
+import com.futsal.tournament.domain.PlayerType;
+import com.futsal.tournament.domain.Tournament;
+import com.futsal.tournament.domain.TournamentType;
 import com.futsal.tournament.dto.TournamentCreateRequest;
 import com.futsal.tournament.dto.TournamentListResponse;
 import com.futsal.tournament.dto.TournamentResponse;
 import com.futsal.tournament.dto.TournamentUpdateRequest;
-import com.futsal.tournament.domain.Tournament;
-import com.futsal.tournament.domain.TournamentType;
-import com.futsal.user.domain.User;
 import com.futsal.tournament.repository.TournamentRepository;
+import com.futsal.user.domain.User;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -205,18 +207,53 @@ public class TournamentService {
     }
 
     /**
+     * String을 Gender enum으로 변환
+     */
+    private Gender parseGender(String gender) {
+        if (gender == null || gender.isBlank()) return null;
+        try {
+            return Gender.valueOf(gender.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    /**
+     * String을 PlayerType enum으로 변환
+     */
+    private PlayerType parsePlayerType(String playerType) {
+        if (playerType == null || playerType.isBlank()) return null;
+        try {
+            return PlayerType.valueOf(playerType.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    /**
      * 대회 목록 조회 (gender, playerType, limit 필터링 가능)
      * - limit이 있고 gender/playerType 둘 다 있으면 DB에서 LIMIT 적용
      * - limit이 없으면 전체 조회 후 최신순 정렬
      */
     @Transactional(readOnly = true)
-    public List<TournamentListResponse> getTournaments(String gender, String playerType, Integer limit) {
+    public List<TournamentListResponse> getTournaments(String genderStr, String playerTypeStr, Integer limit) {
+        Gender gender = parseGender(genderStr);
+        PlayerType playerType = parsePlayerType(playerTypeStr);
+
         List<TournamentListResponse> responses;
 
         // limit이 있고 gender/playerType 둘 다 있으면 DB 레벨에서 LIMIT 적용
         if (limit != null && limit > 0 && gender != null && playerType != null) {
             responses = tournamentRepository.findListByGenderAndPlayerTypeWithLimit(
                     gender, playerType, PageRequest.of(0, limit));
+            populatePosterUrls(responses);
+            return responses;
+        }
+
+        // limit이 있고 gender만 있으면 (MIXED 등) DB 레벨에서 LIMIT 적용
+        if (limit != null && limit > 0 && gender != null && playerType == null) {
+            responses = tournamentRepository.findListByGenderWithLimit(
+                    gender, PageRequest.of(0, limit));
             populatePosterUrls(responses);
             return responses;
         }
