@@ -74,6 +74,25 @@ public class Tournament {
     @Builder.Default
     private Boolean bracketGenerated = false;
 
+    /**
+     * 대진표 생성 방식
+     * AUTO: 시스템 자동 생성 (TournamentMatch 테이블 사용)
+     * MANUAL: 이미지 직접 업로드
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10)
+    @Builder.Default
+    private BracketType bracketType = BracketType.AUTO;
+
+    /**
+     * 대진표 이미지 URL 목록 (MANUAL 타입일 때 사용)
+     */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "tournament_bracket_images", joinColumns = @JoinColumn(name = "tournament_id"))
+    @Column(name = "image_url", length = 500)
+    @Builder.Default
+    private List<String> bracketImageUrls = new ArrayList<>();
+
     @ElementCollection
     @CollectionTable(name = "tournament_posters", joinColumns = @JoinColumn(name = "tournament_id"))
     @Column(name = "poster_url", length = 500)
@@ -168,5 +187,37 @@ public class Tournament {
      */
     public void setPosterUrls(List<String> posterUrls) {
         this.posterUrls = posterUrls != null ? posterUrls : new ArrayList<>();
+    }
+
+    /**
+     * 대진표 이미지 목록 설정
+     */
+    public void setBracketImageUrls(List<String> bracketImageUrls) {
+        this.bracketImageUrls = bracketImageUrls != null ? bracketImageUrls : new ArrayList<>();
+    }
+
+    /**
+     * 대진표를 이미지 모드로 전환
+     */
+    public void switchToManualBracket(List<String> imageUrls) {
+        this.bracketType = BracketType.MANUAL;
+        this.bracketImageUrls = imageUrls != null ? imageUrls : new ArrayList<>();
+        this.bracketGenerated = !this.bracketImageUrls.isEmpty();
+    }
+
+    /**
+     * 대진표를 자동 생성 모드로 전환
+     */
+    public void switchToAutoBracket() {
+        this.bracketType = BracketType.AUTO;
+        this.bracketImageUrls = new ArrayList<>();
+        this.bracketGenerated = false;
+    }
+
+    /**
+     * 대진표가 이미지 모드인지 확인
+     */
+    public boolean isManualBracket() {
+        return this.bracketType == BracketType.MANUAL;
     }
 }

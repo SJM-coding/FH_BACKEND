@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import com.futsal.config.S3Properties;
 
@@ -36,6 +37,13 @@ public class S3Service {
     }
 
     /**
+     * 대진표 이미지를 S3에 업로드하고 URL을 반환
+     */
+    public String uploadBracketImage(MultipartFile file) {
+        return uploadFile(file, "brackets/");
+    }
+
+    /**
      * 파일을 S3에 업로드하고 URL을 반환
      */
     private String uploadFile(MultipartFile file, String prefix) {
@@ -56,6 +64,7 @@ public class S3Service {
                     .key(fileName)
                     .contentType(file.getContentType())
                     .contentLength(file.getSize())
+                    .acl(ObjectCannedACL.PUBLIC_READ)
                     .build();
 
             s3Client.putObject(putRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));

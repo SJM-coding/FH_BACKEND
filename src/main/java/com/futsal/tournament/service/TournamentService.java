@@ -190,6 +190,8 @@ public class TournamentService {
                 tournament.getTeamsPerGroup(),
                 tournament.getSwissRounds(),
                 tournament.getBracketGenerated(),
+                tournament.getBracketType() != null ? tournament.getBracketType().name() : "AUTO",
+                tournament.getBracketImageUrls() != null ? tournament.getBracketImageUrls() : new ArrayList<>(),
                 tournament.getPosterUrls() != null ? tournament.getPosterUrls() : new ArrayList<>(),
                 tournament.getRecruitmentStatus(),
                 tournament.getRegisteredBy() != null ? tournament.getRegisteredBy().getId() : null,

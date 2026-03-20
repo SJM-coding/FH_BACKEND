@@ -28,6 +28,8 @@ public class TournamentResponse {
     private Integer teamsPerGroup;
     private Integer swissRounds;
     private Boolean bracketGenerated;
+    private String bracketType; // AUTO, MANUAL
+    private List<String> bracketImageUrls; // 수동 대진표 이미지
     private List<String> posterUrls; // 포스터 URL 목록
     private String recruitmentStatus; // OPEN, CLOSED
     private Long registeredById;

@@ -1,16 +1,19 @@
 package com.futsal.tournament.service;
 
+import com.futsal.common.storage.S3Service;
 import com.futsal.tournament.domain.*;
 import com.futsal.tournament.dto.*;
 import com.futsal.tournament.repository.TournamentGroupRepository;
 import com.futsal.tournament.repository.TournamentMatchRepository;
 import com.futsal.tournament.repository.TournamentRepository;
+import com.futsal.user.domain.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -26,6 +29,7 @@ public class BracketService {
     private final TournamentRepository tournamentRepository;
     private final TournamentMatchRepository matchRepository;
     private final TournamentGroupRepository groupRepository;
+    private final S3Service s3Service;
 
     /**
      * 대진표 전체 조회
@@ -38,13 +42,38 @@ public class BracketService {
         Tournament tournament = tournamentRepository.findById(tournamentId)
                 .orElseThrow(() -> new RuntimeException("대회를 찾을 수 없습니다: " + tournamentId));
 
-        log.info("대회 조회 완료: id={}, type={}, bracketGenerated={}",
-            tournament.getId(), tournament.getTournamentType(), tournament.getBracketGenerated());
+        log.info("대회 조회 완료: id={}, type={}, bracketType={}, bracketGenerated={}",
+            tournament.getId(), tournament.getTournamentType(),
+            tournament.getBracketType(), tournament.getBracketGenerated());
 
+        // 대진표 미생성 상태
         if (!Boolean.TRUE.equals(tournament.getBracketGenerated())) {
-            throw new RuntimeException("아직 대진표가 생성되지 않았습니다.");
+            return BracketResponse.builder()
+                    .tournamentId(tournament.getId())
+                    .tournamentTitle(tournament.getTitle())
+                    .tournamentType(tournament.getTournamentType() != null
+                            ? tournament.getTournamentType().name() : null)
+                    .bracketType(tournament.getBracketType() != null
+                            ? tournament.getBracketType().name() : BracketType.AUTO.name())
+                    .bracketGenerated(false)
+                    .build();
         }
 
+        // MANUAL 타입: 이미지 URL만 반환
+        if (tournament.isManualBracket()) {
+            log.info("수동 대진표 조회: {}개 이미지", tournament.getBracketImageUrls().size());
+            return BracketResponse.builder()
+                    .tournamentId(tournament.getId())
+                    .tournamentTitle(tournament.getTitle())
+                    .tournamentType(tournament.getTournamentType() != null
+                            ? tournament.getTournamentType().name() : null)
+                    .bracketType(BracketType.MANUAL.name())
+                    .bracketGenerated(true)
+                    .bracketImageUrls(tournament.getBracketImageUrls())
+                    .build();
+        }
+
+        // AUTO 타입: 기존 로직
         List<TournamentMatch> allMatches = matchRepository.findByTournamentIdWithTeams(tournamentId);
         log.info("경기 조회 완료: {}개 경기", allMatches.size());
 
@@ -52,6 +81,7 @@ public class BracketService {
                 .tournamentId(tournament.getId())
                 .tournamentTitle(tournament.getTitle())
                 .tournamentType(tournament.getTournamentType().name())
+                .bracketType(BracketType.AUTO.name())
                 .bracketGenerated(tournament.getBracketGenerated());
 
         switch (tournament.getTournamentType()) {
@@ -543,5 +573,72 @@ public class BracketService {
         }
 
         log.info("결선 토너먼트 생성 완료: {}경기", matchNumber - 1);
+    }
+
+    /**
+     * 대진표 이미지 업로드 (수동 대진표)
+     * - 기존 자동 생성 대진표가 있으면 삭제
+     * - 이미지 업로드 후 MANUAL 모드로 전환
+     */
+    @Transactional
+    @CacheEvict(cacheNames = "bracket", key = "#tournamentId")
+    public BracketResponse uploadBracketImages(Long tournamentId, List<MultipartFile> files, User user) {
+        Tournament tournament = tournamentRepository.findById(tournamentId)
+                .orElseThrow(() -> new RuntimeException("대회를 찾을 수 없습니다: " + tournamentId));
+
+        // 권한 확인
+        if (!tournament.isRegisteredBy(user.getId())) {
+            throw new RuntimeException("대진표를 수정할 권한이 없습니다.");
+        }
+
+        // 기존 자동 생성 대진표 데이터 삭제
+        if (!tournament.isManualBracket() && Boolean.TRUE.equals(tournament.getBracketGenerated())) {
+            log.info("기존 자동 생성 대진표 삭제: tournamentId={}", tournamentId);
+            matchRepository.deleteByTournamentId(tournamentId);
+        }
+
+        // 이미지 업로드
+        List<String> imageUrls = new ArrayList<>();
+        for (MultipartFile file : files) {
+            String imageUrl = s3Service.uploadBracketImage(file);
+            imageUrls.add(imageUrl);
+        }
+
+        // MANUAL 모드로 전환
+        tournament.switchToManualBracket(imageUrls);
+        tournamentRepository.save(tournament);
+
+        log.info("대진표 이미지 업로드 완료: tournamentId={}, imageCount={}", tournamentId, imageUrls.size());
+
+        return BracketResponse.builder()
+                .tournamentId(tournament.getId())
+                .tournamentTitle(tournament.getTitle())
+                .tournamentType(tournament.getTournamentType() != null
+                        ? tournament.getTournamentType().name() : null)
+                .bracketType(BracketType.MANUAL.name())
+                .bracketGenerated(true)
+                .bracketImageUrls(imageUrls)
+                .build();
+    }
+
+    /**
+     * 대진표 이미지 삭제 (자동 생성 모드로 전환)
+     */
+    @Transactional
+    @CacheEvict(cacheNames = "bracket", key = "#tournamentId")
+    public void clearBracketImages(Long tournamentId, User user) {
+        Tournament tournament = tournamentRepository.findById(tournamentId)
+                .orElseThrow(() -> new RuntimeException("대회를 찾을 수 없습니다: " + tournamentId));
+
+        // 권한 확인
+        if (!tournament.isRegisteredBy(user.getId())) {
+            throw new RuntimeException("대진표를 수정할 권한이 없습니다.");
+        }
+
+        // AUTO 모드로 전환
+        tournament.switchToAutoBracket();
+        tournamentRepository.save(tournament);
+
+        log.info("대진표 이미지 삭제 완료, AUTO 모드로 전환: tournamentId={}", tournamentId);
     }
 }

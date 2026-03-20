@@ -24,6 +24,16 @@ public class BracketResponse {
     private Boolean bracketGenerated;
 
     /**
+     * 대진표 생성 방식 (AUTO: 자동 생성, MANUAL: 이미지 업로드)
+     */
+    private String bracketType;
+
+    /**
+     * 대진표 이미지 URL 목록 (MANUAL 타입일 때만 사용)
+     */
+    private List<String> bracketImageUrls;
+
+    /**
      * 라운드별 경기 목록
      */
     private List<RoundMatches> rounds;
