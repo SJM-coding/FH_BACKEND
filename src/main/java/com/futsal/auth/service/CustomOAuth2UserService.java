@@ -67,8 +67,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     private User saveOrUpdate(OAuth2UserInfo userInfo) {
         return userRepository.findByKakaoId(userInfo.getProviderId())
                 .map(existingUser -> {
-                    // 닉네임은 항상 업데이트
-                    existingUser.updateNickname(userInfo.getNickname());
+                    // 기존 사용자는 닉네임 유지 (사용자가 직접 변경했을 수 있음)
 
                     // 커스텀 프로필 이미지가 없을 때만 카카오 이미지로 업데이트
                     if (!existingUser.hasCustomProfileImage()) {
