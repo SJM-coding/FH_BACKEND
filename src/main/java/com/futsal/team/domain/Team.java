@@ -1,6 +1,5 @@
 package com.futsal.team.domain;
 
-import com.futsal.user.domain.User;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -30,9 +29,8 @@ public class Team {
     @Column(length = 500)
     private String logoUrl;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "captain_user_id", nullable = false)
-    private User captain;
+    @Column(name = "captain_user_id", nullable = false)
+    private Long captainUserId;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -55,7 +53,7 @@ public class Team {
      * 팀장 확인
      */
     public boolean isCaptain(Long userId) {
-        return this.captain != null && this.captain.getId().equals(userId);
+        return this.captainUserId != null && this.captainUserId.equals(userId);
     }
 
     /**

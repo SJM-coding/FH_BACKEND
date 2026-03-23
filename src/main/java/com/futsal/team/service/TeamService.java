@@ -32,10 +32,13 @@ import com.futsal.tournament.repository.TournamentParticipantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.futsal.user.repository.UserRepository;
 
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -50,6 +53,7 @@ public class TeamService {
     private final TeamAwardRepository teamAwardRepository;
     private final TournamentParticipantRepository participantRepository;
     private final ObjectMapper objectMapper;
+    private final UserRepository userRepository;
 
     /**
      * 팀 생성
@@ -60,7 +64,7 @@ public class TeamService {
                 .name(request.getName())
                 .region(request.getRegion())
                 .logoUrl(request.getLogoUrl())
-                .captain(captain)
+                .captainUserId(captain.getId())
                 .build();
         
         Team savedTeam = teamRepository.save(team);
@@ -83,7 +87,7 @@ public class TeamService {
      */
     @Transactional(readOnly = true)
     public List<TeamResponse> getMyTeams(User user) {
-        // 1. Team + Captain을 JOIN FETCH로 한 번에 조회
+        // 1. Team을 JOIN FETCH로 한 번에 조회
         List<TeamMember> myMemberships = teamMemberRepository.findByUserAndStatusWithTeam(
                 user,
                 TeamMemberStatus.ACTIVE
@@ -108,6 +112,14 @@ public class TeamService {
                 ));
 
         // 4. DTO 변환
+        Map<Long, String> captainNameMap = buildCaptainNameMap(
+                myMemberships.stream()
+                        .map(tm -> tm.getTeam().getCaptainUserId())
+                        .filter(Objects::nonNull)
+                        .distinct()
+                        .collect(Collectors.toList())
+        );
+
         return myMemberships.stream()
                 .map(tm -> {
                     Team team = tm.getTeam();
@@ -117,8 +129,8 @@ public class TeamService {
                             team.getName(),
                             team.getRegion(),
                             team.getLogoUrl(),
-                            team.getCaptain().getId(),
-                            team.getCaptain().getNickname(),
+                            team.getCaptainUserId(),
+                            captainNameMap.get(team.getCaptainUserId()),
                             memberCount,
                             team.getCreatedAt()
                     );
@@ -131,7 +143,7 @@ public class TeamService {
      */
     @Transactional(readOnly = true)
     public TeamResponse getTeamById(Long teamId) {
-        Team team = teamRepository.findByIdWithCaptain(teamId)
+        Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new RuntimeException("팀을 찾을 수 없습니다: " + teamId));
         return toResponse(team);
     }
@@ -426,8 +438,8 @@ public class TeamService {
                 team.getName(),
                 team.getRegion(),
                 team.getLogoUrl(),
-                team.getCaptain().getId(),
-                team.getCaptain().getNickname(),
+                team.getCaptainUserId(),
+                getCaptainName(team.getCaptainUserId()),
                 memberCount,
                 team.getCreatedAt()
         );
@@ -444,6 +456,25 @@ public class TeamService {
                 member.getPosition(),
                 member.getJoinedAt()
         );
+    }
+
+    private String getCaptainName(Long captainUserId) {
+        if (captainUserId == null) {
+            return null;
+        }
+        return userRepository.findById(captainUserId)
+                .map(User::getNickname)
+                .orElse(null);
+    }
+
+    private Map<Long, String> buildCaptainNameMap(List<Long> captainUserIds) {
+        if (captainUserIds == null || captainUserIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, String> map = new HashMap<>();
+        userRepository.findAllById(captainUserIds)
+                .forEach(user -> map.put(user.getId(), user.getNickname()));
+        return map;
     }
 
     private TacticsResponse toTacticsResponse(TeamTactics tactics) {

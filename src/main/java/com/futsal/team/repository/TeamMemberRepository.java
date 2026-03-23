@@ -52,12 +52,11 @@ public interface TeamMemberRepository extends JpaRepository<TeamMember, Long> {
     int countByTeamAndStatus(Team team, TeamMemberStatus status);
 
     /**
-     * 사용자가 속한 팀 조회 (Team + Captain JOIN FETCH로 N+1 방지)
+     * 사용자가 속한 팀 조회 (Team JOIN FETCH로 N+1 방지)
      */
     @Query("""
         SELECT tm FROM TeamMember tm
         JOIN FETCH tm.team t
-        JOIN FETCH t.captain
         WHERE tm.user = :user AND tm.status = :status
     """)
     List<TeamMember> findByUserAndStatusWithTeam(@Param("user") User user, @Param("status") TeamMemberStatus status);
