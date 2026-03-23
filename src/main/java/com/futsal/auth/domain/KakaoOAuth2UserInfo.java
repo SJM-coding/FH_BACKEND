@@ -36,7 +36,12 @@ public class KakaoOAuth2UserInfo implements OAuth2UserInfo {
     @Override
     public String getProfileImageUrl() {
         if (profile != null && profile.containsKey("profile_image_url")) {
-            return (String) profile.get("profile_image_url");
+            String url = (String) profile.get("profile_image_url");
+            // HTTP → HTTPS 변환 (Mixed Content 방지)
+            if (url != null && url.startsWith("http://")) {
+                return url.replace("http://", "https://");
+            }
+            return url;
         }
         return null;
     }
