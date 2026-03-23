@@ -1,9 +1,12 @@
 package com.futsal.tournament.dto;
 
+import com.futsal.tournament.domain.Gender;
+import com.futsal.tournament.domain.PlayerType;
+import com.futsal.tournament.domain.TournamentType;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.util.List;
-import com.futsal.tournament.domain.TournamentType;
 
 /**
  * 대회 수정 요청 DTO
@@ -11,10 +14,10 @@ import com.futsal.tournament.domain.TournamentType;
 @Data
 public class TournamentUpdateRequest {
     private String title;
-    private java.time.LocalDate tournamentDate;
+    private LocalDate tournamentDate;
     private String location;
-    private String gender;
-    private String playerType;
+    private Gender gender;
+    private PlayerType playerType;
     private String description;
     private String originalLink;
     private TournamentType tournamentType;

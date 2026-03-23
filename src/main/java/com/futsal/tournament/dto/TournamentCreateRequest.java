@@ -1,5 +1,8 @@
 package com.futsal.tournament.dto;
 
+import com.futsal.tournament.domain.Gender;
+import com.futsal.tournament.domain.PlayerType;
+import com.futsal.tournament.domain.TournamentType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -8,7 +11,6 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.util.List;
-import com.futsal.tournament.domain.TournamentType;
 
 @Data
 @NoArgsConstructor
@@ -24,17 +26,16 @@ public class TournamentCreateRequest {
     @NotBlank(message = "장소는 필수입니다")
     private String location;
 
-    @NotBlank(message = "선출 타입은 필수입니다")
-    private String playerType;
+    @NotNull(message = "선출 타입은 필수입니다")
+    private PlayerType playerType;
 
-    @NotBlank(message = "성별은 필수입니다")
-    private String gender;
+    @NotNull(message = "성별은 필수입니다")
+    private Gender gender;
 
     @NotBlank(message = "설명은 필수입니다")
     private String description;
 
-    @NotBlank(message = "원본 링크는 필수입니다")
-    private String originalLink;
+    private String originalLink; // 선택사항
 
     private TournamentType tournamentType;
     private Integer maxTeams;

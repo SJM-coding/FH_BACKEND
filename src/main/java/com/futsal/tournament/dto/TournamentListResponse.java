@@ -1,5 +1,7 @@
 package com.futsal.tournament.dto;
 
+import com.futsal.tournament.domain.Gender;
+import com.futsal.tournament.domain.PlayerType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -18,6 +20,8 @@ public class TournamentListResponse {
     private String recruitmentStatus;
     private String posterUrl; // 첫 번째 포스터만
     private String registeredByName;
-    private String gender; // 성별 (MALE, FEMALE)
-    private String playerType; // 선출 구분 (NON_PRO, PRO)
+    private String registeredByProfileImage;
+    private Gender gender;
+    private PlayerType playerType;
+    private Boolean isExternal;
 }

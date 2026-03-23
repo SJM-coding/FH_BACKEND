@@ -6,7 +6,8 @@ package com.futsal.tournament.domain;
 public enum TournamentType {
     SINGLE_ELIMINATION("싱글 엘리미네이션", "토너먼트", "패배 시 즉시 탈락"),
     GROUP_STAGE("조별 리그", "그룹 스테이지", "조별 예선 후 결선 토너먼트"),
-    SWISS_SYSTEM("스위스 시스템", "스위스", "같은 승점의 팀끼리 매칭");
+    SWISS_SYSTEM("스위스 시스템", "스위스", "같은 승점의 팀끼리 매칭"),
+    EXTERNAL("외부 대회", "외부", "외부 사이트에서 진행되는 대회");
 
     private final String displayName;
     private final String shortName;
@@ -41,6 +42,8 @@ public enum TournamentType {
                 return 8; // 최소 2개 조 (각 4팀)
             case SWISS_SYSTEM:
                 return 6; // 최소 6팀
+            case EXTERNAL:
+                return 0; // 외부 대회는 제한 없음
             default:
                 return 4;
         }
@@ -60,6 +63,9 @@ public enum TournamentType {
             case SWISS_SYSTEM:
                 // 짝수면 권장
                 return teamCount % 2 == 0;
+            case EXTERNAL:
+                // 외부 대회는 항상 true
+                return true;
             default:
                 return false;
         }
@@ -84,6 +90,9 @@ public enum TournamentType {
             case SWISS_SYSTEM:
                 // 일반적으로 log2(팀 수) 라운드
                 return Math.max(3, (int) Math.ceil(Math.log(teamCount) / Math.log(2)));
+            case EXTERNAL:
+                // 외부 대회는 라운드 개념 없음
+                return 0;
             default:
                 return 1;
         }

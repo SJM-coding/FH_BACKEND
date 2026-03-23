@@ -86,4 +86,9 @@ public interface TournamentMatchRepository extends JpaRepository<TournamentMatch
            "AND m.status = 'SCHEDULED' " +
            "ORDER BY m.round ASC, m.matchNumber ASC")
     List<TournamentMatch> findUpcomingMatches(@Param("tournamentId") Long tournamentId);
+
+    /**
+     * 대회의 모든 경기 삭제
+     */
+    void deleteByTournamentId(Long tournamentId);
 }

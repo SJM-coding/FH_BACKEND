@@ -36,6 +36,11 @@ public class BracketGeneratorService {
         Tournament tournament = tournamentRepository.findById(tournamentId)
                 .orElseThrow(() -> new RuntimeException("대회를 찾을 수 없습니다: " + tournamentId));
 
+        // 외부 대회는 자동 생성 불가
+        if (tournament.getTournamentType() == TournamentType.EXTERNAL) {
+            throw new RuntimeException("외부 대회는 이미지 대진표만 등록할 수 있습니다.");
+        }
+
         if (tournament.getBracketGenerated()) {
             throw new RuntimeException("이미 대진표가 생성된 대회입니다.");
         }
@@ -43,7 +48,7 @@ public class BracketGeneratorService {
         // 팀 검증
         if (participatingTeamIds.size() < tournament.getTournamentType().getMinimumTeams()) {
             throw new RuntimeException(
-                String.format("최소 %d팀 이상 필요합니다.", 
+                String.format("최소 %d팀 이상 필요합니다.",
                     tournament.getTournamentType().getMinimumTeams())
             );
         }
@@ -65,12 +70,17 @@ public class BracketGeneratorService {
             case SWISS_SYSTEM:
                 generateSwissSystemBracket(tournament, participatingTeamIds);
                 break;
+            case EXTERNAL:
+                // 위에서 이미 체크했으므로 여기 도달하지 않음
+                throw new RuntimeException("외부 대회는 자동 대진표 생성이 불가능합니다.");
         }
 
+        // AUTO 모드로 설정
+        tournament.setBracketType(BracketType.AUTO);
         tournament.setBracketGenerated(true);
         tournamentRepository.save(tournament);
-        
-        log.info("대진표 생성 완료: 대회 ID={}, 타입={}, 팀 수={}", 
+
+        log.info("대진표 생성 완료: 대회 ID={}, 타입={}, 팀 수={}",
             tournamentId, tournament.getTournamentType(), participatingTeamIds.size());
     }
 

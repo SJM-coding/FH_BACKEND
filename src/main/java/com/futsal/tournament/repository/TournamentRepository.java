@@ -1,5 +1,7 @@
 package com.futsal.tournament.repository;
 
+import com.futsal.tournament.domain.Gender;
+import com.futsal.tournament.domain.PlayerType;
 import com.futsal.tournament.domain.Tournament;
 import com.futsal.tournament.dto.TournamentListResponse;
 import com.futsal.user.domain.User;
@@ -38,8 +40,10 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
             t.recruitmentStatus,
             '',
             u.nickname,
+            u.profileImageUrl,
             t.gender,
-            t.playerType
+            t.playerType,
+            t.isExternal
         )
         FROM Tournament t
         LEFT JOIN t.registeredBy u
@@ -57,8 +61,10 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
             t.recruitmentStatus,
             '',
             u.nickname,
+            u.profileImageUrl,
             t.gender,
-            t.playerType
+            t.playerType,
+            t.isExternal
         )
         FROM Tournament t
         LEFT JOIN t.registeredBy u
@@ -78,8 +84,10 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
             t.recruitmentStatus,
             '',
             u.nickname,
+            u.profileImageUrl,
             t.gender,
-            t.playerType
+            t.playerType,
+            t.isExternal
         )
         FROM Tournament t
         LEFT JOIN t.registeredBy u
@@ -98,15 +106,17 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
             t.recruitmentStatus,
             '',
             u.nickname,
+            u.profileImageUrl,
             t.gender,
-            t.playerType
+            t.playerType,
+            t.isExternal
         )
         FROM Tournament t
         LEFT JOIN t.registeredBy u
         WHERE t.gender = :gender
         ORDER BY t.tournamentDate ASC
     """)
-    List<TournamentListResponse> findListByGender(@Param("gender") String gender);
+    List<TournamentListResponse> findListByGender(@Param("gender") Gender gender);
 
     @Query("""
         SELECT new com.futsal.tournament.dto.TournamentListResponse(
@@ -117,15 +127,17 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
             t.recruitmentStatus,
             '',
             u.nickname,
+            u.profileImageUrl,
             t.gender,
-            t.playerType
+            t.playerType,
+            t.isExternal
         )
         FROM Tournament t
         LEFT JOIN t.registeredBy u
         WHERE t.playerType = :playerType
         ORDER BY t.tournamentDate ASC
     """)
-    List<TournamentListResponse> findListByPlayerType(@Param("playerType") String playerType);
+    List<TournamentListResponse> findListByPlayerType(@Param("playerType") PlayerType playerType);
 
     @Query("""
         SELECT new com.futsal.tournament.dto.TournamentListResponse(
@@ -136,8 +148,10 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
             t.recruitmentStatus,
             '',
             u.nickname,
+            u.profileImageUrl,
             t.gender,
-            t.playerType
+            t.playerType,
+            t.isExternal
         )
         FROM Tournament t
         LEFT JOIN t.registeredBy u
@@ -146,8 +160,8 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
         ORDER BY t.tournamentDate ASC
     """)
     List<TournamentListResponse> findListByGenderAndPlayerType(
-            @Param("gender") String gender,
-            @Param("playerType") String playerType
+            @Param("gender") Gender gender,
+            @Param("playerType") PlayerType playerType
     );
 
     // LIMIT 적용 버전 (Pageable 사용)
@@ -160,8 +174,10 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
             t.recruitmentStatus,
             '',
             u.nickname,
+            u.profileImageUrl,
             t.gender,
-            t.playerType
+            t.playerType,
+            t.isExternal
         )
         FROM Tournament t
         LEFT JOIN t.registeredBy u
@@ -171,8 +187,34 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
         ORDER BY t.tournamentDate ASC
     """)
     List<TournamentListResponse> findListByGenderAndPlayerTypeWithLimit(
-            @Param("gender") String gender,
-            @Param("playerType") String playerType,
+            @Param("gender") Gender gender,
+            @Param("playerType") PlayerType playerType,
+            Pageable pageable
+    );
+
+    // LIMIT 적용 버전 (Gender만)
+    @Query("""
+        SELECT new com.futsal.tournament.dto.TournamentListResponse(
+            t.id,
+            t.title,
+            t.tournamentDate,
+            t.location,
+            t.recruitmentStatus,
+            '',
+            u.nickname,
+            u.profileImageUrl,
+            t.gender,
+            t.playerType,
+            t.isExternal
+        )
+        FROM Tournament t
+        LEFT JOIN t.registeredBy u
+        WHERE t.gender = :gender
+          AND t.tournamentDate >= CURRENT_DATE
+        ORDER BY t.tournamentDate ASC
+    """)
+    List<TournamentListResponse> findListByGenderWithLimit(
+            @Param("gender") Gender gender,
             Pageable pageable
     );
 

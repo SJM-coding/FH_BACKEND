@@ -9,7 +9,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -101,6 +103,57 @@ public class BracketController {
         try {
             MatchResponse result = bracketService.recordMatchResult(tournamentId, matchId, request);
             return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * 대진표 이미지 업로드 (수동 대진표)
+     * POST /api/tournaments/{tournamentId}/bracket/images
+     */
+    @PostMapping("/images")
+    public ResponseEntity<?> uploadBracketImages(
+            @PathVariable Long tournamentId,
+            @RequestParam("files") List<MultipartFile> files,
+            @AuthenticationPrincipal User user
+    ) {
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        if (files == null || files.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "업로드할 파일이 없습니다."));
+        }
+
+        if (files.size() > 5) {
+            return ResponseEntity.badRequest().body(Map.of("error", "대진표 이미지는 최대 5장까지 업로드할 수 있습니다."));
+        }
+
+        try {
+            BracketResponse result = bracketService.uploadBracketImages(tournamentId, files, user);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * 대진표 이미지 삭제 (자동 생성 모드로 전환)
+     * DELETE /api/tournaments/{tournamentId}/bracket/images
+     */
+    @DeleteMapping("/images")
+    public ResponseEntity<?> clearBracketImages(
+            @PathVariable Long tournamentId,
+            @AuthenticationPrincipal User user
+    ) {
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        try {
+            bracketService.clearBracketImages(tournamentId, user);
+            return ResponseEntity.ok(Map.of("message", "대진표 이미지가 삭제되었습니다."));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

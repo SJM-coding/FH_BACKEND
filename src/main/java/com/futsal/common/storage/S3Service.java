@@ -36,6 +36,13 @@ public class S3Service {
     }
 
     /**
+     * 대진표 이미지를 S3에 업로드하고 URL을 반환
+     */
+    public String uploadBracketImage(MultipartFile file) {
+        return uploadFile(file, "brackets/");
+    }
+
+    /**
      * 파일을 S3에 업로드하고 URL을 반환
      */
     private String uploadFile(MultipartFile file, String prefix) {
@@ -51,6 +58,7 @@ public class S3Service {
         String bucketName = properties.getS3().getBucket();
 
         try {
+            // ACL 대신 버킷 정책으로 퍼블릭 접근 관리
             PutObjectRequest putRequest = PutObjectRequest.builder()
                     .bucket(bucketName)
                     .key(fileName)
