@@ -43,7 +43,8 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
             u.profileImageUrl,
             t.gender,
             t.playerType,
-            t.isExternal
+            t.isExternal,
+            u.verificationStatus
         )
         FROM Tournament t
         LEFT JOIN t.registeredBy u
@@ -64,7 +65,8 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
             u.profileImageUrl,
             t.gender,
             t.playerType,
-            t.isExternal
+            t.isExternal,
+            u.verificationStatus
         )
         FROM Tournament t
         LEFT JOIN t.registeredBy u
@@ -87,7 +89,8 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
             u.profileImageUrl,
             t.gender,
             t.playerType,
-            t.isExternal
+            t.isExternal,
+            u.verificationStatus
         )
         FROM Tournament t
         LEFT JOIN t.registeredBy u
@@ -109,7 +112,8 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
             u.profileImageUrl,
             t.gender,
             t.playerType,
-            t.isExternal
+            t.isExternal,
+            u.verificationStatus
         )
         FROM Tournament t
         LEFT JOIN t.registeredBy u
@@ -130,7 +134,8 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
             u.profileImageUrl,
             t.gender,
             t.playerType,
-            t.isExternal
+            t.isExternal,
+            u.verificationStatus
         )
         FROM Tournament t
         LEFT JOIN t.registeredBy u
@@ -151,7 +156,8 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
             u.profileImageUrl,
             t.gender,
             t.playerType,
-            t.isExternal
+            t.isExternal,
+            u.verificationStatus
         )
         FROM Tournament t
         LEFT JOIN t.registeredBy u
@@ -177,7 +183,8 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
             u.profileImageUrl,
             t.gender,
             t.playerType,
-            t.isExternal
+            t.isExternal,
+            u.verificationStatus
         )
         FROM Tournament t
         LEFT JOIN t.registeredBy u
@@ -205,7 +212,8 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
             u.profileImageUrl,
             t.gender,
             t.playerType,
-            t.isExternal
+            t.isExternal,
+            u.verificationStatus
         )
         FROM Tournament t
         LEFT JOIN t.registeredBy u
