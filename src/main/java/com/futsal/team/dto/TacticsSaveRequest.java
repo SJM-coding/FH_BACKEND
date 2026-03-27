@@ -15,4 +15,5 @@ import java.util.List;
 public class TacticsSaveRequest {
     private String formation;
     private List<TacticsPlayerPosition> players;
+    private String framesJson; // 애니메이션 프레임 JSON (최대 10개)
 }

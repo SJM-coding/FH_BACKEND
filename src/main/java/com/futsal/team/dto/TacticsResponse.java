@@ -18,6 +18,7 @@ public class TacticsResponse {
     private Long teamId;
     private String formation;
     private List<TacticsPlayerPosition> players;
+    private String framesJson; // 애니메이션 프레임 JSON
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
