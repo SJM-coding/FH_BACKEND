@@ -104,6 +104,8 @@ public class AuthController {
         response.put("profileImageUrl", user.getProfileImageUrl());
         response.put("role", user.getRole());
         response.put("roleSelected", roleSelected);
+        response.put("verificationStatus", user.getVerificationStatus());
+        response.put("verified", user.isVerified());
 
         return ResponseEntity.ok(response);
     }
@@ -240,6 +242,31 @@ public class AuthController {
 
         Map<String, Object> response = userService.updateProfile(user.getId(), request);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 개최자 인증 신청
+     */
+    @PostMapping("/verification/request")
+    public ResponseEntity<?> requestVerification(
+            @AuthenticationPrincipal User user
+    ) {
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        try {
+            user.requestVerification();
+            userRepository.save(user);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("verificationStatus", user.getVerificationStatus());
+            response.put("message", "인증 신청이 완료되었습니다");
+
+            return ResponseEntity.ok(response);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     /**

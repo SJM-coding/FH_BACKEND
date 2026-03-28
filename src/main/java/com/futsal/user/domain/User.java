@@ -57,6 +57,19 @@ public class User {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
+    /**
+     * 개최자 인증 상태
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    @Builder.Default
+    private VerificationStatus verificationStatus = VerificationStatus.NONE;
+
+    /**
+     * 인증 완료 일시
+     */
+    private LocalDateTime verifiedAt;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -127,5 +140,49 @@ public class User {
      */
     public Boolean getRoleSelected() {
         return roleSelected;
+    }
+
+    /**
+     * 인증 신청
+     */
+    public void requestVerification() {
+        if (this.role != UserRole.ORGANIZER) {
+            throw new IllegalStateException("개최자만 인증 신청이 가능합니다");
+        }
+        if (this.verificationStatus == VerificationStatus.VERIFIED) {
+            throw new IllegalStateException("이미 인증된 사용자입니다");
+        }
+        if (this.verificationStatus == VerificationStatus.PENDING) {
+            throw new IllegalStateException("이미 인증 심사 중입니다");
+        }
+        this.verificationStatus = VerificationStatus.PENDING;
+    }
+
+    /**
+     * 인증 승인 (관리자)
+     */
+    public void approveVerification() {
+        if (this.verificationStatus != VerificationStatus.PENDING) {
+            throw new IllegalStateException("심사 중인 요청만 승인할 수 있습니다");
+        }
+        this.verificationStatus = VerificationStatus.VERIFIED;
+        this.verifiedAt = LocalDateTime.now();
+    }
+
+    /**
+     * 인증 거절 (관리자)
+     */
+    public void rejectVerification() {
+        if (this.verificationStatus != VerificationStatus.PENDING) {
+            throw new IllegalStateException("심사 중인 요청만 거절할 수 있습니다");
+        }
+        this.verificationStatus = VerificationStatus.REJECTED;
+    }
+
+    /**
+     * 인증 여부 확인
+     */
+    public boolean isVerified() {
+        return this.verificationStatus == VerificationStatus.VERIFIED;
     }
 }

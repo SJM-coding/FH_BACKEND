@@ -355,15 +355,17 @@ public class TeamService {
         
         Optional<TeamTactics> existingTactics = teamTacticsRepository.findByTeam(team);
         TeamTactics tactics;
-        
+        String framesJson = request.getFramesJson(); // 프레임 JSON (이미 문자열)
+
         if (existingTactics.isPresent()) {
             tactics = existingTactics.get();
-            tactics.updateTactics(request.getFormation(), playersJson);
+            tactics.updateTactics(request.getFormation(), playersJson, framesJson);
         } else {
             tactics = TeamTactics.builder()
                     .team(team)
                     .formation(request.getFormation())
                     .playersJson(playersJson)
+                    .framesJson(framesJson)
                     .build();
         }
         
@@ -481,18 +483,19 @@ public class TeamService {
         List<TacticsPlayerPosition> players;
         try {
             players = objectMapper.readValue(
-                tactics.getPlayersJson(), 
+                tactics.getPlayersJson(),
                 new TypeReference<List<TacticsPlayerPosition>>() {}
             );
         } catch (JsonProcessingException e) {
             players = List.of();
         }
-        
+
         return new TacticsResponse(
                 tactics.getId(),
                 tactics.getTeam().getId(),
                 tactics.getFormation(),
                 players,
+                tactics.getFramesJson(), // 프레임 JSON
                 tactics.getCreatedAt(),
                 tactics.getUpdatedAt()
         );

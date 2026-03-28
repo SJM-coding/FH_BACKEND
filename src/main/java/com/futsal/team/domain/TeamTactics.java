@@ -30,6 +30,9 @@ public class TeamTactics {
     @Column(columnDefinition = "TEXT")
     private String playersJson; // JSON 형태로 저장
 
+    @Column(columnDefinition = "TEXT")
+    private String framesJson; // 애니메이션 프레임 JSON
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -50,8 +53,9 @@ public class TeamTactics {
     /**
      * 전술 업데이트
      */
-    public void updateTactics(String formation, String playersJson) {
+    public void updateTactics(String formation, String playersJson, String framesJson) {
         this.formation = formation;
         this.playersJson = playersJson;
+        this.framesJson = framesJson;
     }
 }

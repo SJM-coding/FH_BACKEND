@@ -198,6 +198,8 @@ public class TournamentService {
                 tournament.getRecruitmentStatus(),
                 tournament.getRegisteredBy() != null ? tournament.getRegisteredBy().getId() : null,
                 tournament.getRegisteredBy() != null ? tournament.getRegisteredBy().getNickname() : null,
+                tournament.getRegisteredBy() != null ? tournament.getRegisteredBy().getRole().name() : null,
+                tournament.getRegisteredBy() != null ? tournament.getRegisteredBy().isVerified() : false,
                 tournament.getCreatedAt(),
                 tournament.getIsExternal(),
                 tournament.getExternalUrl(),

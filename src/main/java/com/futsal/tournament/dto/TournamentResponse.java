@@ -36,6 +36,8 @@ public class TournamentResponse {
     private String recruitmentStatus; // OPEN, CLOSED
     private Long registeredById;
     private String registeredByName;
+    private String registeredByRole; // ORGANIZER, ADMIN
+    private Boolean organizerVerified; // 인증된 개최자 여부
     private LocalDateTime createdAt;
     private Boolean isExternal;
     private String externalUrl;
