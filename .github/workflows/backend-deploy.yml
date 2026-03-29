@@ -9,9 +9,6 @@ on:
 env:
   AWS_REGION: ap-northeast-2
   ECR_REPOSITORY: amfutsalhub/backend
-  ECS_CLUSTER: amfutsalhub-cluster
-  ECS_SERVICE: amfutsalhub-backend-task-service-69yalh3j
-  ECS_TASK_DEFINITION: amfutsalhub-backend-task
 
 jobs:
   # 빌드 및 테스트
@@ -78,26 +75,21 @@ jobs:
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:latest" >> $GITHUB_OUTPUT
 
-      - name: Download current task definition
+      - name: Deploy to EC2 via SSM
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          aws ecs describe-task-definition \
-            --task-definition ${{ env.ECS_TASK_DEFINITION }} \
-            --query taskDefinition > task-definition.json
-
-      - name: Update task definition with new image
-        id: task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: task-definition.json
-          container-name: amfutsalhub-backend
-          image: ${{ steps.build-image.outputs.image }}
-
-      - name: Deploy to Amazon ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
+          aws ssm send-command \
+            --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters commands='[
+              "aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin '"$ECR_REGISTRY"'",
+              "docker pull '"$ECR_REGISTRY/$ECR_REPOSITORY:latest"'",
+              "docker stop backend || true",
+              "docker rm backend || true",
+              "docker run -d --name backend --env-file /home/ssm-user/.env -p 8080:8080 --restart unless-stopped '"$ECR_REGISTRY/$ECR_REPOSITORY:latest"'"
+            ]' \
+            --output text \
+            --query "Command.CommandId"
