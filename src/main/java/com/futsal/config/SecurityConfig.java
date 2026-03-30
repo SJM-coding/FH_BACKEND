@@ -71,6 +71,8 @@ public class SecurityConfig {
                 auth.requestMatchers("/login/**", "/oauth2/**").permitAll();
                 // ShareCode 기반 대진표 접근 - 인증 불필요
                 auth.requestMatchers("/api/share/**").permitAll();
+                // 영상 API - 인증 불필요
+                auth.requestMatchers("/api/videos/**").permitAll();
                 if (isLocal) {
                     auth.requestMatchers("/h2-console/**").permitAll();
                 }
