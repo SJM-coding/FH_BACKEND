@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import com.futsal.user.domain.User;
+import com.futsal.common.converter.StringListConverter;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -95,11 +96,10 @@ public class Tournament {
     @Builder.Default
     private List<String> bracketImageUrls = new ArrayList<>();
 
-    @ElementCollection
-    @CollectionTable(name = "tournament_posters", joinColumns = @JoinColumn(name = "tournament_id"))
-    @Column(name = "poster_url", length = 500)
+    @Column(columnDefinition = "JSON")
+    @Convert(converter = StringListConverter.class)
     @Builder.Default
-    private List<String> posterUrls = new ArrayList<>(); // 여러 포스터 URL
+    private List<String> posterUrls = new ArrayList<>(); // 여러 포스터 URL (JSON 배열로 저장)
 
     @Column(nullable = false, length = 20)
     @Builder.Default
