@@ -237,8 +237,6 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
     boolean existsByStaffCode(String staffCode);
     java.util.Optional<Tournament> findByStaffCode(String staffCode);
 
-    @Query("SELECT t.id, p FROM Tournament t JOIN t.posterUrls p WHERE t.id IN :ids")
-    List<Object[]> findPosterUrlsByTournamentIds(@Param("ids") List<Long> ids);
 
     // 중복 대회 체크
     boolean existsByTitleAndTournamentDateAndRegisteredBy(

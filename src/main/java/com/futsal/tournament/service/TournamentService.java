@@ -354,17 +354,15 @@ public class TournamentService {
                 .map(TournamentListResponse::getId)
                 .collect(Collectors.toList());
 
-        List<Object[]> rows = tournamentRepository.findPosterUrlsByTournamentIds(ids);
-        if (rows == null || rows.isEmpty()) {
-            return;
-        }
+        // posterUrls가 JSON 컬럼이므로 Tournament 엔티티에서 직접 조회
+        List<Tournament> tournaments = tournamentRepository.findAllById(ids);
 
-        // keep the first poster encountered per tournament (same as previous behavior)
         java.util.Map<Long, String> firstPosterByTournamentId = new java.util.HashMap<>();
-        for (Object[] row : rows) {
-            Long tournamentId = (Long) row[0];
-            String posterUrl = (String) row[1];
-            firstPosterByTournamentId.putIfAbsent(tournamentId, posterUrl);
+        for (Tournament tournament : tournaments) {
+            List<String> posterUrls = tournament.getPosterUrls();
+            if (posterUrls != null && !posterUrls.isEmpty()) {
+                firstPosterByTournamentId.put(tournament.getId(), posterUrls.get(0));
+            }
         }
 
         for (TournamentListResponse response : responses) {
