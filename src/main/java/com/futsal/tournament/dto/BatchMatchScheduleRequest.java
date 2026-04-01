@@ -4,14 +4,15 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 /**
- * 경기 결과 입력 DTO
+ * 다건 경기 일정 설정 요청 DTO
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class MatchResultRequest {
+public class BatchMatchScheduleRequest {
 
-    private Integer team1Score;
-    private Integer team2Score;
+    private List<MatchScheduleUpdateRequest> schedules;
 }

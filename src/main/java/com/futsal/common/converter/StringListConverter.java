@@ -32,9 +32,17 @@ public class StringListConverter implements AttributeConverter<List<String>, Str
             return new ArrayList<>();
         }
         try {
-            return objectMapper.readValue(dbData, new TypeReference<List<String>>() {});
+            String jsonData = dbData;
+
+            // 이중 인코딩된 경우 처리 (예: "\"[\\\"url1\\\"]\"")
+            // 문자열이 따옴표로 시작하면 먼저 String으로 파싱해서 언이스케이프
+            if (jsonData.startsWith("\"") && jsonData.endsWith("\"")) {
+                jsonData = objectMapper.readValue(jsonData, String.class);
+            }
+
+            return objectMapper.readValue(jsonData, new TypeReference<List<String>>() {});
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("JSON 파싱 실패", e);
+            throw new RuntimeException("JSON 파싱 실패: " + dbData, e);
         }
     }
 }

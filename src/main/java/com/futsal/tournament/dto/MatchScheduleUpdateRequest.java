@@ -4,14 +4,16 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 /**
- * 경기 결과 입력 DTO
+ * 경기별 일정 설정 요청 DTO
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class MatchResultRequest {
+public class MatchScheduleUpdateRequest {
 
-    private Integer team1Score;
-    private Integer team2Score;
+    private Long matchId;
+    private LocalDateTime scheduledAt;
 }

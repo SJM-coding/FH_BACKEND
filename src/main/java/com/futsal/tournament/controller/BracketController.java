@@ -86,6 +86,28 @@ public class BracketController {
     }
 
     /**
+     * 경기 일정 일괄 설정
+     * PUT /api/tournaments/{tournamentId}/bracket/matches/schedules
+     */
+    @PutMapping("/matches/schedules")
+    public ResponseEntity<?> updateMatchSchedules(
+            @PathVariable Long tournamentId,
+            @RequestBody BatchMatchScheduleRequest request,
+            @AuthenticationPrincipal User user
+    ) {
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        try {
+            List<MatchResponse> result = bracketService.updateMatchSchedules(tournamentId, request);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
      * 경기 결과 입력
      * POST /api/tournaments/{tournamentId}/bracket/matches/{matchId}/result
      */
@@ -154,6 +176,30 @@ public class BracketController {
         try {
             bracketService.clearBracketImages(tournamentId, user);
             return ResponseEntity.ok(Map.of("message", "대진표 이미지가 삭제되었습니다."));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * 조별리그 진출팀 수동 선택 후 결선 토너먼트 생성
+     * 동점 상황에서 개최자가 직접 진출팀을 선택할 때 사용
+     * POST /api/tournaments/{tournamentId}/bracket/select-qualifiers
+     */
+    @PostMapping("/select-qualifiers")
+    public ResponseEntity<?> selectQualifiersAndGenerateKnockout(
+            @PathVariable Long tournamentId,
+            @RequestBody QualifierSelectionRequest request,
+            @AuthenticationPrincipal User user
+    ) {
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        try {
+            BracketResponse result = bracketService.selectQualifiersAndGenerateKnockout(
+                    tournamentId, request, user);
+            return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
