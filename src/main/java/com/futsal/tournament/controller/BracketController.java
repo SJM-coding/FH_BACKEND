@@ -158,4 +158,28 @@ public class BracketController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
+
+    /**
+     * 조별리그 진출팀 수동 선택 후 결선 토너먼트 생성
+     * 동점 상황에서 개최자가 직접 진출팀을 선택할 때 사용
+     * POST /api/tournaments/{tournamentId}/bracket/select-qualifiers
+     */
+    @PostMapping("/select-qualifiers")
+    public ResponseEntity<?> selectQualifiersAndGenerateKnockout(
+            @PathVariable Long tournamentId,
+            @RequestBody QualifierSelectionRequest request,
+            @AuthenticationPrincipal User user
+    ) {
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        try {
+            BracketResponse result = bracketService.selectQualifiersAndGenerateKnockout(
+                    tournamentId, request, user);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 }

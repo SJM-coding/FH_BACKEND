@@ -34,6 +34,21 @@ public class BracketResponse {
     private List<String> bracketImageUrls;
 
     /**
+     * 조별리그 완료 여부 (모든 조의 경기 완료)
+     */
+    private Boolean groupStageCompleted;
+
+    /**
+     * 진출팀 선택 필요 여부 (동점으로 인해)
+     */
+    private Boolean needsQualifierSelection;
+
+    /**
+     * 결선 토너먼트 생성 완료 여부
+     */
+    private Boolean knockoutGenerated;
+
+    /**
      * 라운드별 경기 목록
      */
     private List<RoundMatches> rounds;
@@ -61,6 +76,21 @@ public class BracketResponse {
         private String groupName;
         private List<TeamStanding> standings;
         private List<MatchResponse> matches;
+
+        /**
+         * 조별리그 완료 여부
+         */
+        private Boolean groupCompleted;
+
+        /**
+         * 진출권 동점 여부 (2위와 3위가 동점)
+         */
+        private Boolean hasTie;
+
+        /**
+         * 동점인 팀 ID 목록
+         */
+        private List<Long> tiedTeamIds;
     }
 
     @Data
