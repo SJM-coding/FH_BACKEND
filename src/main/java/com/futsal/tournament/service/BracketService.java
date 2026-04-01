@@ -410,6 +410,51 @@ public class BracketService {
     }
 
     /**
+     * 경기 일정 일괄 업데이트
+     */
+    @Transactional
+    @CacheEvict(cacheNames = "bracket", key = "#tournamentId")
+    public List<MatchResponse> updateMatchSchedules(Long tournamentId, BatchMatchScheduleRequest request) {
+        if (request.getSchedules() == null || request.getSchedules().isEmpty()) {
+            throw new RuntimeException("저장할 경기 일정이 없습니다.");
+        }
+
+        List<Long> matchIds = request.getSchedules().stream()
+                .map(MatchScheduleUpdateRequest::getMatchId)
+                .toList();
+
+        List<TournamentMatch> matches = matchRepository.findAllById(matchIds);
+        if (matches.size() != matchIds.size()) {
+            throw new RuntimeException("일부 경기를 찾을 수 없습니다.");
+        }
+
+        Map<Long, TournamentMatch> matchesById = matches.stream()
+                .collect(Collectors.toMap(TournamentMatch::getId, match -> match));
+
+        List<TournamentMatch> updatedMatches = new ArrayList<>();
+        for (MatchScheduleUpdateRequest schedule : request.getSchedules()) {
+            TournamentMatch match = matchesById.get(schedule.getMatchId());
+            if (match == null) {
+                throw new RuntimeException("경기를 찾을 수 없습니다: " + schedule.getMatchId());
+            }
+
+            if (!match.getTournament().getId().equals(tournamentId)) {
+                throw new RuntimeException("대회 정보가 일치하지 않습니다.");
+            }
+
+            match.updateSchedule(schedule.getScheduledAt());
+            updatedMatches.add(match);
+        }
+
+        List<TournamentMatch> savedMatches = matchRepository.saveAll(updatedMatches);
+        log.info("경기 일정 일괄 업데이트: tournamentId={}, matchCount={}", tournamentId, savedMatches.size());
+
+        return savedMatches.stream()
+                .map(MatchResponse::from)
+                .toList();
+    }
+
+    /**
      * 경기 결과 입력
      */
     @Transactional
