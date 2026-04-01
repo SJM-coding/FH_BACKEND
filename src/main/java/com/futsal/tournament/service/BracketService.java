@@ -767,6 +767,26 @@ public class BracketService {
             throw new RuntimeException("대진표를 수정할 권한이 없습니다.");
         }
 
+        return selectQualifiersAndGenerateKnockoutInternal(tournament, request);
+    }
+
+    @Transactional
+    @CacheEvict(cacheNames = "bracket", key = "#tournamentId")
+    public BracketResponse selectQualifiersAndGenerateKnockoutByShareCode(
+            Long tournamentId,
+            QualifierSelectionRequest request) {
+
+        Tournament tournament = tournamentRepository.findById(tournamentId)
+                .orElseThrow(() -> new RuntimeException("대회를 찾을 수 없습니다: " + tournamentId));
+
+        return selectQualifiersAndGenerateKnockoutInternal(tournament, request);
+    }
+
+    private BracketResponse selectQualifiersAndGenerateKnockoutInternal(
+            Tournament tournament,
+            QualifierSelectionRequest request) {
+        Long tournamentId = tournament.getId();
+
         // 조별리그 대회인지 확인
         if (tournament.getTournamentType() != TournamentType.GROUP_STAGE) {
             throw new RuntimeException("조별리그 대회에서만 사용할 수 있습니다.");

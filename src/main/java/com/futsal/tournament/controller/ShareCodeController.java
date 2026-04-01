@@ -4,6 +4,7 @@ import com.futsal.tournament.domain.Tournament;
 import com.futsal.tournament.dto.BracketResponse;
 import com.futsal.tournament.dto.MatchResponse;
 import com.futsal.tournament.dto.MatchResultRequest;
+import com.futsal.tournament.dto.QualifierSelectionRequest;
 import com.futsal.tournament.repository.TournamentRepository;
 import com.futsal.tournament.service.BracketService;
 import lombok.RequiredArgsConstructor;
@@ -97,6 +98,31 @@ public class ShareCodeController {
 
         try {
             MatchResponse result = bracketService.recordMatchResult(tournament.getId(), matchId, request);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/{staffCode}/select-qualifiers")
+    public ResponseEntity<?> selectQualifiersAndGenerateKnockout(
+            @PathVariable String staffCode,
+            @RequestBody QualifierSelectionRequest request
+    ) {
+        Tournament tournament = tournamentRepository.findByStaffCode(staffCode)
+                .orElse(null);
+
+        if (tournament == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "유효하지 않은 운영진코드입니다."));
+        }
+
+        if (!Boolean.TRUE.equals(tournament.getBracketGenerated())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "아직 대진표가 생성되지 않았습니다."));
+        }
+
+        try {
+            BracketResponse result = bracketService.selectQualifiersAndGenerateKnockoutByShareCode(
+                    tournament.getId(), request);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
