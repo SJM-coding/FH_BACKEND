@@ -28,11 +28,14 @@ public class TournamentService {
     private static final int CODE_LENGTH = 6;
 
     private final TournamentRepository tournamentRepository;
+    private final TournamentViewCountService tournamentViewCountService;
     private final String defaultPosterUrl;
 
     public TournamentService(TournamentRepository tournamentRepository,
+                             TournamentViewCountService tournamentViewCountService,
                              @Value("${app.poster.default-url:}") String defaultPosterUrl) {
         this.tournamentRepository = tournamentRepository;
+        this.tournamentViewCountService = tournamentViewCountService;
         this.defaultPosterUrl = defaultPosterUrl;
     }
 
@@ -85,6 +88,7 @@ public class TournamentService {
                 .maxTeams(maxTeams)
                 .groupCount(request.getGroupCount())
                 .teamsPerGroup(request.getTeamsPerGroup())
+                .advanceCount(request.getAdvanceCount() != null ? request.getAdvanceCount() : 2)
                 .swissRounds(request.getSwissRounds())
                 .posterUrls(normalizePosterUrls(request.getPosterUrls()))
                 .isExternal(isExternal)
@@ -125,6 +129,7 @@ public class TournamentService {
         if (request.getMaxTeams() != null) tournament.setMaxTeams(request.getMaxTeams());
         if (request.getGroupCount() != null) tournament.setGroupCount(request.getGroupCount());
         if (request.getTeamsPerGroup() != null) tournament.setTeamsPerGroup(request.getTeamsPerGroup());
+        if (request.getAdvanceCount() != null) tournament.setAdvanceCount(request.getAdvanceCount());
         if (request.getSwissRounds() != null) tournament.setSwissRounds(request.getSwissRounds());
         if (request.getIsExternal() != null) {
             tournament.setIsExternal(request.getIsExternal());
@@ -176,6 +181,10 @@ public class TournamentService {
     }
 
     private TournamentResponse toResponse(Tournament tournament) {
+        return toResponse(tournament, tournament.getViewCount());
+    }
+
+    private TournamentResponse toResponse(Tournament tournament, int viewCount) {
         return new TournamentResponse(
                 tournament.getId(),
                 tournament.getTitle(),
@@ -184,12 +193,13 @@ public class TournamentService {
                 tournament.getPlayerType(),
                 tournament.getGender(),
                 tournament.getDescription(),
-                tournament.getViewCount(),
+                viewCount,
                 tournament.getOriginalLink(),
                 tournament.getTournamentType().name(),
                 tournament.getMaxTeams(),
                 tournament.getGroupCount(),
                 tournament.getTeamsPerGroup(),
+                tournament.getAdvanceCount(),
                 tournament.getSwissRounds(),
                 tournament.getBracketGenerated(),
                 tournament.getBracketType() != null ? tournament.getBracketType().name() : "AUTO",
@@ -303,10 +313,8 @@ public class TournamentService {
         Tournament tournament = tournamentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("대회를 찾을 수 없습니다: " + id));
 
-        // 조회수 원자적 증가 (race condition 방지)
-        tournamentRepository.incrementViewCount(id);
-
-        return toResponse(tournament);
+        int visibleViewCount = tournamentViewCountService.recordViewAndGetVisibleCount(tournament);
+        return toResponse(tournament, visibleViewCount);
     }
 
     /**

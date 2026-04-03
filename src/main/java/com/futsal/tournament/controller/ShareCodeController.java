@@ -1,6 +1,7 @@
 package com.futsal.tournament.controller;
 
 import com.futsal.tournament.domain.Tournament;
+import com.futsal.tournament.dto.BatchMatchScheduleRequest;
 import com.futsal.tournament.dto.BracketResponse;
 import com.futsal.tournament.dto.MatchResponse;
 import com.futsal.tournament.dto.MatchResultRequest;
@@ -124,6 +125,34 @@ public class ShareCodeController {
             BracketResponse result = bracketService.selectQualifiersAndGenerateKnockoutByShareCode(
                     tournament.getId(), request);
             return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * 운영진 코드로 경기 일정 일괄 설정
+     * PUT /api/share/{staffCode}/matches/schedules
+     */
+    @PutMapping("/{staffCode}/matches/schedules")
+    public ResponseEntity<?> updateMatchSchedules(
+            @PathVariable String staffCode,
+            @RequestBody BatchMatchScheduleRequest request
+    ) {
+        Tournament tournament = tournamentRepository.findByStaffCode(staffCode)
+                .orElse(null);
+
+        if (tournament == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "유효하지 않은 운영진코드입니다."));
+        }
+
+        if (!Boolean.TRUE.equals(tournament.getBracketGenerated())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "아직 대진표가 생성되지 않았습니다."));
+        }
+
+        try {
+            var results = bracketService.updateMatchSchedules(tournament.getId(), request);
+            return ResponseEntity.ok(results);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

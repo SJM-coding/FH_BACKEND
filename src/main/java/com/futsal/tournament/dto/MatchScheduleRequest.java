@@ -15,4 +15,5 @@ import java.time.LocalDateTime;
 public class MatchScheduleRequest {
 
     private LocalDateTime scheduledAt;
+    private String venueName;
 }

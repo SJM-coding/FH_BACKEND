@@ -95,6 +95,12 @@ public class TournamentMatch {
     private LocalDateTime scheduledAt;
 
     /**
+     * 경기장 이름
+     */
+    @Column(length = 100)
+    private String venueName;
+
+    /**
      * 경기 시작 시간
      */
     @Column
@@ -207,8 +213,9 @@ public class TournamentMatch {
     /**
      * 경기 일정 업데이트
      */
-    public void updateSchedule(LocalDateTime scheduledAt) {
+    public void updateSchedule(LocalDateTime scheduledAt, String venueName) {
         this.scheduledAt = scheduledAt;
+        this.venueName = venueName;
     }
 
     /**
@@ -223,5 +230,15 @@ public class TournamentMatch {
      */
     public boolean isDraw() {
         return isFinished() && winner == null;
+    }
+
+    /**
+     * 패자 팀 반환
+     */
+    public Team getLoser() {
+        if (!isFinished() || winner == null || team1 == null || team2 == null) {
+            return null;
+        }
+        return winner.getId().equals(team1.getId()) ? team2 : team1;
     }
 }

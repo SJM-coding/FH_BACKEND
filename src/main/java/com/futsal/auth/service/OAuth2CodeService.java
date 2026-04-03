@@ -35,20 +35,13 @@ public class OAuth2CodeService {
     }
 
     /**
-     * 임시 코드로 AccessToken 조회 (1회만 가능)
+     * redis getdel 코
      * @param code 임시 코드
      * @return AccessToken (없으면 null)
      */
     public String consumeCode(String code) {
         String key = buildKey(code);
-        String accessToken = redisTemplate.opsForValue().get(key);
-        
-        if (accessToken != null) {
-            // 1회용이므로 즉시 삭제
-            redisTemplate.delete(key);
-        }
-        
-        return accessToken;
+        return redisTemplate.opsForValue().getAndDelete(key);
     }
 
     private String generateRandomCode() {

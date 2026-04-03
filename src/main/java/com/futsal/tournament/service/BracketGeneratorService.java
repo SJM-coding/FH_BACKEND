@@ -2,6 +2,7 @@ package com.futsal.tournament.service;
 
 import com.futsal.team.domain.Team;
 import com.futsal.team.repository.TeamRepository;
+import com.futsal.tournament.dto.BracketGenerateRequest;
 import com.futsal.tournament.domain.*;
 import com.futsal.tournament.repository.TournamentGroupRepository;
 import com.futsal.tournament.repository.TournamentMatchRepository;
@@ -32,9 +33,14 @@ public class BracketGeneratorService {
      */
     @Transactional
     @CacheEvict(cacheNames = "bracket", key = "#tournamentId")
-    public void generateBracket(Long tournamentId, List<Long> participatingTeamIds) {
+    public void generateBracket(Long tournamentId, BracketGenerateRequest request) {
         Tournament tournament = tournamentRepository.findById(tournamentId)
                 .orElseThrow(() -> new RuntimeException("대회를 찾을 수 없습니다: " + tournamentId));
+        List<Long> participatingTeamIds = request.getParticipatingTeamIds();
+
+        if (participatingTeamIds == null || participatingTeamIds.isEmpty()) {
+            throw new RuntimeException("참가 팀 정보가 없습니다.");
+        }
 
         // 외부 대회는 자동 생성 불가
         if (tournament.getTournamentType() == TournamentType.EXTERNAL) {
@@ -59,6 +65,8 @@ public class BracketGeneratorService {
             );
         }
 
+        applyGenerationSettings(tournament, request, participatingTeamIds.size());
+
         // 대진표 생성 타입별 분기
         switch (tournament.getTournamentType()) {
             case SINGLE_ELIMINATION:
@@ -82,6 +90,45 @@ public class BracketGeneratorService {
 
         log.info("대진표 생성 완료: 대회 ID={}, 타입={}, 팀 수={}",
             tournamentId, tournament.getTournamentType(), participatingTeamIds.size());
+    }
+
+    private void applyGenerationSettings(Tournament tournament, BracketGenerateRequest request, int teamCount) {
+        switch (tournament.getTournamentType()) {
+            case GROUP_STAGE -> {
+                if (request.getGroupCount() != null) {
+                    tournament.setGroupCount(request.getGroupCount());
+                }
+                if (request.getTeamsPerGroup() != null) {
+                    tournament.setTeamsPerGroup(request.getTeamsPerGroup());
+                }
+                if (request.getAdvanceCount() != null) {
+                    tournament.setAdvanceCount(request.getAdvanceCount());
+                }
+
+                if (tournament.getGroupCount() == null || tournament.getTeamsPerGroup() == null) {
+                    throw new RuntimeException("조별리그 설정이 없습니다.");
+                }
+                if (!Objects.equals(tournament.getGroupCount() * tournament.getTeamsPerGroup(), teamCount)) {
+                    throw new RuntimeException(
+                            String.format("참가 팀 수(%d)가 조 구성(%d개 조 × %d팀)과 맞지 않습니다.",
+                                    teamCount, tournament.getGroupCount(), tournament.getTeamsPerGroup())
+                    );
+                }
+                if (tournament.getAdvanceCount() == null || tournament.getAdvanceCount() < 1) {
+                    tournament.setAdvanceCount(2);
+                }
+            }
+            case SWISS_SYSTEM -> {
+                if (request.getSwissRounds() != null) {
+                    tournament.setSwissRounds(request.getSwissRounds());
+                }
+                if (tournament.getSwissRounds() == null || tournament.getSwissRounds() < 1) {
+                    throw new RuntimeException("스위스 시스템 라운드 수가 올바르지 않습니다.");
+                }
+            }
+            default -> {
+            }
+        }
     }
 
     /**
@@ -237,8 +284,53 @@ public class BracketGeneratorService {
 
         log.info("조별리그 총 {}경기 생성", matchNumber - 1);
 
-        // 결선 토너먼트는 조별리그 종료 후 생성
-        // (각 조 상위 N팀 추출 후 토너먼트)
+        // 결선 토너먼트 매치 미리 생성 (팀은 조별리그 종료 후 배정)
+        generateEmptyKnockoutMatches(tournament, groupCount, tournament.getAdvanceCount());
+    }
+
+    /**
+     * 결선 토너먼트 빈 매치 미리 생성 (팀은 나중에 배정)
+     */
+    private void generateEmptyKnockoutMatches(Tournament tournament, int groupCount, int advanceCount) {
+        int knockoutTeamCount = groupCount * advanceCount;
+        int bracketSize = nextPowerOfTwo(knockoutTeamCount);
+        int totalRounds = (int) (Math.log(bracketSize) / Math.log(2));
+
+        log.info("결선 토너먼트 빈 매치 생성: {}팀 진출 예정, {}라운드", knockoutTeamCount, totalRounds);
+
+        int knockoutRound = 2; // 조별리그가 round 1
+        int currentMatchCount = bracketSize / 2;
+        int knockoutMatchNumber = 1;
+
+        // 모든 라운드의 빈 매치 생성
+        for (int round = knockoutRound; round < knockoutRound + totalRounds; round++) {
+            for (int i = 0; i < currentMatchCount; i++) {
+                TournamentMatch match = TournamentMatch.builder()
+                        .tournament(tournament)
+                        .round(round)
+                        .matchNumber(knockoutMatchNumber++)
+                        .status(TournamentMatch.MatchStatus.SCHEDULED)
+                        .build();
+                matchRepository.save(match);
+            }
+            // 다음 라운드는 경기 수가 절반
+            currentMatchCount /= 2;
+            knockoutMatchNumber = 1; // 라운드별로 matchNumber 리셋
+        }
+
+        // 준결승이 있는 경우 마지막 라운드에 3,4위전 경기 추가 생성
+        if (totalRounds >= 2) {
+            int finalRound = knockoutRound + totalRounds - 1;
+            TournamentMatch thirdPlaceMatch = TournamentMatch.builder()
+                    .tournament(tournament)
+                    .round(finalRound)
+                    .matchNumber(2)
+                    .status(TournamentMatch.MatchStatus.SCHEDULED)
+                    .build();
+            matchRepository.save(thirdPlaceMatch);
+        }
+
+        log.info("결선 토너먼트 빈 매치 생성 완료");
     }
 
     /**

@@ -39,9 +39,13 @@ public class MatchResponse {
     private Long winnerId;
     private String winnerName;
 
+    // 경기 라벨 (예: 결승, 3·4위전)
+    private String matchLabel;
+
     // 상태
     private String status;
     private LocalDateTime scheduledAt;
+    private String venueName;
     private LocalDateTime startedAt;
     private LocalDateTime finishedAt;
 
@@ -59,6 +63,7 @@ public class MatchResponse {
                 .team2Score(match.getTeam2Score())
                 .status(match.getStatus().name())
                 .scheduledAt(match.getScheduledAt())
+                .venueName(match.getVenueName())
                 .startedAt(match.getStartedAt())
                 .finishedAt(match.getFinishedAt());
 

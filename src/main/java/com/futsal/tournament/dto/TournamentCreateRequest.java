@@ -41,6 +41,7 @@ public class TournamentCreateRequest {
     private Integer maxTeams;
     private Integer groupCount;
     private Integer teamsPerGroup;
+    private Integer advanceCount;  // 조별리그: 각 조당 결선 진출 팀 수
     private Integer swissRounds;
 
     private List<String> posterUrls; // S3 업로드 후 URL 목록

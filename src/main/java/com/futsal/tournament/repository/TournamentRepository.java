@@ -250,4 +250,8 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
     @Query("UPDATE Tournament t SET t.viewCount = t.viewCount + 1 WHERE t.id = :id")
     void incrementViewCount(@Param("id") Long id);
 
+    @Modifying
+    @Query("UPDATE Tournament t SET t.viewCount = t.viewCount + :count WHERE t.id = :id")
+    void incrementViewCountBy(@Param("id") Long id, @Param("count") long count);
+
 }

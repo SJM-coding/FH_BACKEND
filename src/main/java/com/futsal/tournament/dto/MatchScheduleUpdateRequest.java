@@ -16,4 +16,5 @@ public class MatchScheduleUpdateRequest {
 
     private Long matchId;
     private LocalDateTime scheduledAt;
+    private String venueName;
 }
