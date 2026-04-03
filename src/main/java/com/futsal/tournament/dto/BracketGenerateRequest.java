@@ -27,6 +27,7 @@ public class BracketGenerateRequest {
      */
     private Integer groupCount;
     private Integer teamsPerGroup;
+    private Integer advanceCount;  // 각 조당 결선 진출 팀 수 (기본값: 2)
 
     /**
      * 스위스 시스템 설정 (SWISS_SYSTEM인 경우만)

@@ -201,7 +201,7 @@ public class BracketService {
 
         // 결선 토너먼트 경기들
         List<TournamentMatch> knockoutMatches = matches.stream()
-                .filter(m -> m.getGroupId() == null)
+                .filter(m -> m.getGroupId() == null && m.getRound() > 1)
                 .collect(Collectors.toList());
 
         Map<Integer, List<TournamentMatch>> knockoutByRound = knockoutMatches.stream()
@@ -218,14 +218,16 @@ public class BracketService {
                         .build())
                 .collect(Collectors.toList());
 
-        boolean knockoutGenerated = !knockoutMatches.isEmpty();
+        // 결선 경기가 있고, 팀이 배정되어 있는지 확인
+        boolean knockoutTeamsAssigned = knockoutMatches.stream()
+                .anyMatch(m -> m.getTeam1() != null || m.getTeam2() != null);
 
         return builder
                 .groups(groupInfos)
                 .rounds(rounds)
                 .groupStageCompleted(allGroupsCompleted)
-                .needsQualifierSelection(allGroupsCompleted && anyGroupHasTie && !knockoutGenerated)
-                .knockoutGenerated(knockoutGenerated)
+                .needsQualifierSelection(allGroupsCompleted && anyGroupHasTie && !knockoutTeamsAssigned)
+                .knockoutGenerated(knockoutTeamsAssigned)
                 .build();
     }
 
@@ -525,15 +527,20 @@ public class BracketService {
     }
 
     /**
-     * 조별리그 완료 여부 확인 후 결선 토너먼트 생성
-     * 동점 시에는 자동 생성하지 않고 개최자가 수동으로 선택하도록 함
+     * 조별리그 완료 여부 확인 후 결선 토너먼트 팀 배정
+     * 동점 시에는 자동 배정하지 않고 개최자가 수동으로 선택하도록 함
      */
     private void checkAndGenerateKnockoutBracket(Tournament tournament) {
-        // 이미 결선 경기가 있으면 스킵
         List<TournamentMatch> allMatches = matchRepository.findByTournamentIdWithTeams(tournament.getId());
-        boolean hasKnockoutMatches = allMatches.stream()
-                .anyMatch(m -> m.getGroupId() == null && m.getRound() > 1);
-        if (hasKnockoutMatches) {
+
+        // 결선 경기에 이미 팀이 배정되어 있으면 스킵
+        List<TournamentMatch> knockoutMatches = allMatches.stream()
+                .filter(m -> m.getGroupId() == null && m.getRound() > 1)
+                .collect(Collectors.toList());
+
+        boolean knockoutTeamsAssigned = knockoutMatches.stream()
+                .anyMatch(m -> m.getTeam1() != null || m.getTeam2() != null);
+        if (knockoutTeamsAssigned) {
             return;
         }
 
@@ -572,7 +579,7 @@ public class BracketService {
             }
         }
 
-        log.info("조별리그 완료, 동점 없음. 결선 토너먼트 자동 생성 시작: tournamentId={}", tournament.getId());
+        log.info("조별리그 완료, 동점 없음. 결선 토너먼트 팀 배정 시작: tournamentId={}", tournament.getId());
 
         // 각 조별 진출팀 선정
         List<com.futsal.team.domain.Team> qualifiedTeams = new ArrayList<>();
@@ -584,8 +591,8 @@ public class BracketService {
 
             List<BracketResponse.TeamStanding> standings = calculateStandings(group, groupMatchList);
 
-            // 상위 2팀 진출 (조당)
-            int advanceCount = Math.min(2, standings.size());
+            // 상위 N팀 진출 (조당)
+            int advanceCount = Math.min(tournament.getAdvanceCount(), standings.size());
             for (int i = 0; i < advanceCount; i++) {
                 Long teamId = standings.get(i).getTeamId();
                 group.getTeams().stream()
@@ -597,16 +604,17 @@ public class BracketService {
 
         log.info("결선 진출팀 {}팀 선정 완료", qualifiedTeams.size());
 
-        // 결선 토너먼트 매치 생성
-        generateKnockoutMatches(tournament, qualifiedTeams, groups.size());
+        // 결선 토너먼트 매치에 팀 배정
+        assignTeamsToKnockoutMatches(tournament, qualifiedTeams, knockoutMatches, groups.size());
     }
 
     /**
-     * 결선 토너먼트 매치 생성
+     * 결선 토너먼트 매치에 팀 배정 (이미 생성된 빈 매치에 팀 할당)
      */
-    private void generateKnockoutMatches(Tournament tournament,
-                                         List<com.futsal.team.domain.Team> qualifiedTeams,
-                                         int groupCount) {
+    private void assignTeamsToKnockoutMatches(Tournament tournament,
+                                              List<com.futsal.team.domain.Team> qualifiedTeams,
+                                              List<TournamentMatch> knockoutMatches,
+                                              int groupCount) {
         int teamCount = qualifiedTeams.size();
         if (teamCount < 2) {
             log.warn("결선 진출팀이 2팀 미만입니다: {}", teamCount);
@@ -619,8 +627,7 @@ public class BracketService {
             bracketSize *= 2;
         }
 
-        int totalRounds = (int) (Math.log(bracketSize) / Math.log(2));
-        log.info("결선 토너먼트 생성: {}팀, {}라운드", teamCount, totalRounds);
+        log.info("결선 토너먼트 팀 배정: {}팀", teamCount);
 
         // 시드 배치 (A조 1위 vs B조 2위, B조 1위 vs A조 2위 등)
         List<com.futsal.team.domain.Team> seededTeams = new ArrayList<>();
@@ -636,20 +643,17 @@ public class BracketService {
             }
         }
 
-        // 1라운드 (결선) 매치 생성
-        int matchNumber = 1;
-        int knockoutRound = 2; // 조별리그가 round 1
-        int matchesInFirstRound = bracketSize / 2;
+        // 결선 1라운드 매치 찾기 (round = 2)
+        int knockoutRound = 2;
+        List<TournamentMatch> firstRoundMatches = knockoutMatches.stream()
+                .filter(m -> m.getRound() == knockoutRound)
+                .sorted(Comparator.comparing(TournamentMatch::getMatchNumber))
+                .collect(Collectors.toList());
 
-        for (int i = 0; i < matchesInFirstRound; i++) {
-            TournamentMatch match = TournamentMatch.builder()
-                    .tournament(tournament)
-                    .round(knockoutRound)
-                    .matchNumber(matchNumber++)
-                    .status(TournamentMatch.MatchStatus.SCHEDULED)
-                    .build();
+        // 1라운드 매치에 팀 배정 (크로스 매칭)
+        for (int i = 0; i < firstRoundMatches.size(); i++) {
+            TournamentMatch match = firstRoundMatches.get(i);
 
-            // 팀 배정 (크로스 매칭: i번째 vs (bracketSize-1-i)번째)
             int team1Index = i;
             int team2Index = bracketSize - 1 - i;
 
@@ -663,22 +667,7 @@ public class BracketService {
             matchRepository.save(match);
         }
 
-        // 이후 라운드 빈 매치 생성
-        int currentMatchCount = matchesInFirstRound;
-        for (int round = knockoutRound + 1; round <= knockoutRound + totalRounds - 1; round++) {
-            currentMatchCount /= 2;
-            for (int i = 1; i <= currentMatchCount; i++) {
-                TournamentMatch match = TournamentMatch.builder()
-                        .tournament(tournament)
-                        .round(round)
-                        .matchNumber(i)
-                        .status(TournamentMatch.MatchStatus.SCHEDULED)
-                        .build();
-                matchRepository.save(match);
-            }
-        }
-
-        log.info("결선 토너먼트 생성 완료: {}경기", matchNumber - 1);
+        log.info("결선 토너먼트 팀 배정 완료: {}경기", firstRoundMatches.size());
     }
 
     /**
@@ -792,12 +781,18 @@ public class BracketService {
             throw new RuntimeException("조별리그 대회에서만 사용할 수 있습니다.");
         }
 
-        // 이미 결선 경기가 있는지 확인
         List<TournamentMatch> allMatches = matchRepository.findByTournamentIdWithTeams(tournamentId);
-        boolean hasKnockoutMatches = allMatches.stream()
-                .anyMatch(m -> m.getGroupId() == null && m.getRound() > 1);
-        if (hasKnockoutMatches) {
-            throw new RuntimeException("이미 결선 토너먼트가 생성되었습니다.");
+
+        // 결선 경기 조회
+        List<TournamentMatch> knockoutMatches = allMatches.stream()
+                .filter(m -> m.getGroupId() == null && m.getRound() > 1)
+                .collect(Collectors.toList());
+
+        // 결선 경기에 이미 팀이 배정되어 있는지 확인
+        boolean knockoutTeamsAssigned = knockoutMatches.stream()
+                .anyMatch(m -> m.getTeam1() != null || m.getTeam2() != null);
+        if (knockoutTeamsAssigned) {
+            throw new RuntimeException("이미 결선 토너먼트 팀이 배정되었습니다.");
         }
 
         // 조별리그 경기 완료 여부 확인
@@ -843,8 +838,8 @@ public class BracketService {
 
         log.info("수동 선택된 결선 진출팀: {}팀", qualifiedTeams.size());
 
-        // 결선 토너먼트 매치 생성
-        generateKnockoutMatches(tournament, qualifiedTeams, groups.size());
+        // 결선 토너먼트 매치에 팀 배정
+        assignTeamsToKnockoutMatches(tournament, qualifiedTeams, knockoutMatches, groups.size());
 
         // 업데이트된 대진표 반환
         return getBracket(tournamentId);

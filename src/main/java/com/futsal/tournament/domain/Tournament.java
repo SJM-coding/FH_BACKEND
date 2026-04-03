@@ -70,6 +70,13 @@ public class Tournament {
     @Column
     private Integer teamsPerGroup;
 
+    /**
+     * 조별리그에서 각 조당 결선 진출 팀 수 (기본값: 2)
+     */
+    @Column
+    @Builder.Default
+    private Integer advanceCount = 2;
+
     @Column
     private Integer swissRounds;
 

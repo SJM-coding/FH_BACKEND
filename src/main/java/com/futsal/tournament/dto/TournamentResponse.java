@@ -28,6 +28,7 @@ public class TournamentResponse {
     private Integer maxTeams;
     private Integer groupCount;
     private Integer teamsPerGroup;
+    private Integer advanceCount;  // 조별리그: 각 조당 결선 진출 팀 수
     private Integer swissRounds;
     private Boolean bracketGenerated;
     private String bracketType; // AUTO, MANUAL

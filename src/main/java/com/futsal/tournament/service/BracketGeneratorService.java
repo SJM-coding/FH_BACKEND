@@ -237,8 +237,41 @@ public class BracketGeneratorService {
 
         log.info("조별리그 총 {}경기 생성", matchNumber - 1);
 
-        // 결선 토너먼트는 조별리그 종료 후 생성
-        // (각 조 상위 N팀 추출 후 토너먼트)
+        // 결선 토너먼트 매치 미리 생성 (팀은 조별리그 종료 후 배정)
+        generateEmptyKnockoutMatches(tournament, groupCount, tournament.getAdvanceCount());
+    }
+
+    /**
+     * 결선 토너먼트 빈 매치 미리 생성 (팀은 나중에 배정)
+     */
+    private void generateEmptyKnockoutMatches(Tournament tournament, int groupCount, int advanceCount) {
+        int knockoutTeamCount = groupCount * advanceCount;
+        int bracketSize = nextPowerOfTwo(knockoutTeamCount);
+        int totalRounds = (int) (Math.log(bracketSize) / Math.log(2));
+
+        log.info("결선 토너먼트 빈 매치 생성: {}팀 진출 예정, {}라운드", knockoutTeamCount, totalRounds);
+
+        int knockoutRound = 2; // 조별리그가 round 1
+        int currentMatchCount = bracketSize / 2;
+        int knockoutMatchNumber = 1;
+
+        // 모든 라운드의 빈 매치 생성
+        for (int round = knockoutRound; round < knockoutRound + totalRounds; round++) {
+            for (int i = 0; i < currentMatchCount; i++) {
+                TournamentMatch match = TournamentMatch.builder()
+                        .tournament(tournament)
+                        .round(round)
+                        .matchNumber(knockoutMatchNumber++)
+                        .status(TournamentMatch.MatchStatus.SCHEDULED)
+                        .build();
+                matchRepository.save(match);
+            }
+            // 다음 라운드는 경기 수가 절반
+            currentMatchCount /= 2;
+            knockoutMatchNumber = 1; // 라운드별로 matchNumber 리셋
+        }
+
+        log.info("결선 토너먼트 빈 매치 생성 완료");
     }
 
     /**

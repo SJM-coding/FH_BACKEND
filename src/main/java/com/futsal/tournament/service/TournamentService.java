@@ -88,6 +88,7 @@ public class TournamentService {
                 .maxTeams(maxTeams)
                 .groupCount(request.getGroupCount())
                 .teamsPerGroup(request.getTeamsPerGroup())
+                .advanceCount(request.getAdvanceCount() != null ? request.getAdvanceCount() : 2)
                 .swissRounds(request.getSwissRounds())
                 .posterUrls(normalizePosterUrls(request.getPosterUrls()))
                 .isExternal(isExternal)
@@ -128,6 +129,7 @@ public class TournamentService {
         if (request.getMaxTeams() != null) tournament.setMaxTeams(request.getMaxTeams());
         if (request.getGroupCount() != null) tournament.setGroupCount(request.getGroupCount());
         if (request.getTeamsPerGroup() != null) tournament.setTeamsPerGroup(request.getTeamsPerGroup());
+        if (request.getAdvanceCount() != null) tournament.setAdvanceCount(request.getAdvanceCount());
         if (request.getSwissRounds() != null) tournament.setSwissRounds(request.getSwissRounds());
         if (request.getIsExternal() != null) {
             tournament.setIsExternal(request.getIsExternal());
@@ -197,6 +199,7 @@ public class TournamentService {
                 tournament.getMaxTeams(),
                 tournament.getGroupCount(),
                 tournament.getTeamsPerGroup(),
+                tournament.getAdvanceCount(),
                 tournament.getSwissRounds(),
                 tournament.getBracketGenerated(),
                 tournament.getBracketType() != null ? tournament.getBracketType().name() : "AUTO",
