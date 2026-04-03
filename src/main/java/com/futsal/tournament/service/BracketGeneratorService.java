@@ -149,20 +149,19 @@ public class BracketGeneratorService {
             teamRepository.findById(teamId).ifPresent(team -> teamMap.put(teamId, team));
         }
 
-        // 팀 셔플 (랜덤 시드)
-        List<Long> shuffledTeams = new ArrayList<>(teamIds);
-        Collections.shuffle(shuffledTeams);
+        // 프론트엔드에서 전달받은 순서를 그대로 사용 (사용자가 직접 정렬함)
+        List<Long> orderedTeams = new ArrayList<>(teamIds);
 
         // 부전승 팀 추가 (null로 표시)
         for (int i = 0; i < byeCount; i++) {
-            shuffledTeams.add(null);
+            orderedTeams.add(null);
         }
 
         // 1라운드 매치 생성
         int matchNumber = 1;
         for (int i = 0; i < bracketSize; i += 2) {
-            Long team1Id = shuffledTeams.get(i);
-            Long team2Id = shuffledTeams.get(i + 1);
+            Long team1Id = orderedTeams.get(i);
+            Long team2Id = orderedTeams.get(i + 1);
 
             TournamentMatch match = TournamentMatch.builder()
                     .tournament(tournament)
@@ -223,9 +222,8 @@ public class BracketGeneratorService {
             teamRepository.findById(teamId).ifPresent(team -> teamMap.put(teamId, team));
         }
 
-        // 팀 셔플
-        List<Long> shuffledTeams = new ArrayList<>(teamIds);
-        Collections.shuffle(shuffledTeams);
+        // 프론트엔드에서 전달받은 순서를 그대로 사용 (사용자가 직접 정렬함)
+        List<Long> orderedTeams = new ArrayList<>(teamIds);
 
         // 조 생성 및 팀 배정
         List<TournamentGroup> groups = new ArrayList<>();
@@ -244,7 +242,7 @@ public class BracketGeneratorService {
             // 조에 팀 배정
             for (int j = 0; j < teamsPerGroup; j++) {
                 int teamIndex = i * teamsPerGroup + j;
-                Long teamId = shuffledTeams.get(teamIndex);
+                Long teamId = orderedTeams.get(teamIndex);
                 if (teamMap.containsKey(teamId)) {
                     Team team = teamMap.get(teamId);
                     group.getTeams().add(team);
@@ -353,8 +351,8 @@ public class BracketGeneratorService {
         }
 
         // 1라운드만 생성 (이후 라운드는 결과에 따라 동적 생성)
-        List<Long> shuffledTeams = new ArrayList<>(teamIds);
-        Collections.shuffle(shuffledTeams);
+        // 프론트엔드에서 전달받은 순서를 그대로 사용 (사용자가 직접 정렬함)
+        List<Long> orderedTeams = new ArrayList<>(teamIds);
 
         int matchNumber = 1;
         for (int i = 0; i < teamCount; i += 2) {
@@ -366,8 +364,8 @@ public class BracketGeneratorService {
                     .build();
 
             // 팀 배정
-            Long team1Id = shuffledTeams.get(i);
-            Long team2Id = shuffledTeams.get(i + 1);
+            Long team1Id = orderedTeams.get(i);
+            Long team2Id = orderedTeams.get(i + 1);
             if (teamMap.containsKey(team1Id)) {
                 match.assignTeam1(teamMap.get(team1Id));
             }
