@@ -117,15 +117,13 @@ public class BracketService {
         List<BracketResponse.RoundMatches> rounds = new ArrayList<>();
         for (int round = 1; round <= maxRound; round++) {
             List<TournamentMatch> roundMatches = matchesByRound.getOrDefault(round, Collections.emptyList());
-            
+
             BracketResponse.RoundMatches roundData = BracketResponse.RoundMatches.builder()
                     .round(round)
-                    .roundName(getRoundName(round, maxRound))
-                    .matches(roundMatches.stream()
-                            .map(MatchResponse::from)
-                            .collect(Collectors.toList()))
+                    .roundName(getRoundDisplayName(round, maxRound, roundMatches))
+                    .matches(toMatchResponses(roundMatches, round, maxRound))
                     .build();
-            
+
             rounds.add(roundData);
         }
 
@@ -211,10 +209,14 @@ public class BracketService {
                 .sorted(Map.Entry.comparingByKey())
                 .map(entry -> BracketResponse.RoundMatches.builder()
                         .round(entry.getKey())
-                        .roundName("결선 " + getRoundName(entry.getKey() - 1, knockoutByRound.size()))
-                        .matches(entry.getValue().stream()
-                                .map(MatchResponse::from)
-                                .collect(Collectors.toList()))
+                        .roundName("결선 " + getRoundDisplayName(
+                                entry.getKey() - 1,
+                                knockoutByRound.size(),
+                                entry.getValue()))
+                        .matches(toMatchResponses(
+                                entry.getValue(),
+                                entry.getKey() - 1,
+                                knockoutByRound.size()))
                         .build())
                 .collect(Collectors.toList());
 
@@ -280,6 +282,42 @@ public class BracketService {
         } else {
             return teamsInRound + "강";
         }
+    }
+
+    private String getRoundDisplayName(int round, int totalRounds, List<TournamentMatch> roundMatches) {
+        String baseName = getRoundName(round, totalRounds);
+        if (round == totalRounds && roundMatches.size() >= 2) {
+            return "결승 / 3·4위전";
+        }
+        return baseName;
+    }
+
+    private List<MatchResponse> toMatchResponses(
+            List<TournamentMatch> matches,
+            int round,
+            int totalRounds
+    ) {
+        List<TournamentMatch> sortedMatches = matches.stream()
+                .sorted(Comparator.comparing(TournamentMatch::getMatchNumber))
+                .collect(Collectors.toList());
+
+        List<MatchResponse> responses = sortedMatches.stream()
+                .map(MatchResponse::from)
+                .collect(Collectors.toList());
+
+        if (round == totalRounds && sortedMatches.size() >= 2) {
+            for (int i = 0; i < responses.size(); i++) {
+                TournamentMatch match = sortedMatches.get(i);
+                MatchResponse response = responses.get(i);
+                if (match.getMatchNumber() == 1) {
+                    response.setMatchLabel("결승");
+                } else if (match.getMatchNumber() == 2) {
+                    response.setMatchLabel("3·4위전");
+                }
+            }
+        }
+
+        return responses;
     }
 
     /**
@@ -524,6 +562,45 @@ public class BracketService {
             log.info("승자 진출 처리: {}팀 -> {}라운드 {}경기",
                     match.getWinner().getName(), nextRound, nextMatchNumber);
         }
+
+        assignLoserToThirdPlaceMatch(match, nextRound);
+    }
+
+    private void assignLoserToThirdPlaceMatch(TournamentMatch match, int nextRound) {
+        Team loser = match.getLoser();
+        if (loser == null) {
+            return;
+        }
+
+        List<TournamentMatch> currentRoundMatches = matchRepository.findByTournamentIdAndRound(
+                match.getTournament().getId(), match.getRound());
+        if (currentRoundMatches.size() != 2) {
+            return;
+        }
+
+        List<TournamentMatch> nextRoundMatches = matchRepository.findByTournamentIdAndRound(
+                match.getTournament().getId(), nextRound);
+        if (nextRoundMatches.size() < 2) {
+            return;
+        }
+
+        TournamentMatch thirdPlaceMatch = nextRoundMatches.stream()
+                .filter(m -> m.getMatchNumber() == 2)
+                .findFirst()
+                .orElse(null);
+        if (thirdPlaceMatch == null) {
+            return;
+        }
+
+        if (match.getMatchNumber() % 2 == 1) {
+            thirdPlaceMatch.assignTeam1(loser);
+        } else {
+            thirdPlaceMatch.assignTeam2(loser);
+        }
+
+        matchRepository.save(thirdPlaceMatch);
+        log.info("패자 3,4위전 배치: {}팀 -> {}라운드 2경기",
+                loser.getName(), nextRound);
     }
 
     /**

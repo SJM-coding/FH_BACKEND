@@ -39,6 +39,9 @@ public class MatchResponse {
     private Long winnerId;
     private String winnerName;
 
+    // 경기 라벨 (예: 결승, 3·4위전)
+    private String matchLabel;
+
     // 상태
     private String status;
     private LocalDateTime scheduledAt;

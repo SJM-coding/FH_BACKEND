@@ -224,4 +224,14 @@ public class TournamentMatch {
     public boolean isDraw() {
         return isFinished() && winner == null;
     }
+
+    /**
+     * 패자 팀 반환
+     */
+    public Team getLoser() {
+        if (!isFinished() || winner == null || team1 == null || team2 == null) {
+            return null;
+        }
+        return winner.getId().equals(team1.getId()) ? team2 : team1;
+    }
 }

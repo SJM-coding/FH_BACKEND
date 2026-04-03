@@ -271,6 +271,18 @@ public class BracketGeneratorService {
             knockoutMatchNumber = 1; // 라운드별로 matchNumber 리셋
         }
 
+        // 준결승이 있는 경우 마지막 라운드에 3,4위전 경기 추가 생성
+        if (totalRounds >= 2) {
+            int finalRound = knockoutRound + totalRounds - 1;
+            TournamentMatch thirdPlaceMatch = TournamentMatch.builder()
+                    .tournament(tournament)
+                    .round(finalRound)
+                    .matchNumber(2)
+                    .status(TournamentMatch.MatchStatus.SCHEDULED)
+                    .build();
+            matchRepository.save(thirdPlaceMatch);
+        }
+
         log.info("결선 토너먼트 빈 매치 생성 완료");
     }
 
