@@ -441,10 +441,11 @@ public class BracketService {
             throw new RuntimeException("대회 정보가 일치하지 않습니다.");
         }
 
-        match.updateSchedule(request.getScheduledAt());
+        match.updateSchedule(request.getScheduledAt(), request.getVenueName());
 
         TournamentMatch saved = matchRepository.save(match);
-        log.info("경기 일정 업데이트: matchId={}, scheduledAt={}", matchId, request.getScheduledAt());
+        log.info("경기 일정 업데이트: matchId={}, scheduledAt={}, venueName={}",
+                matchId, request.getScheduledAt(), request.getVenueName());
 
         return MatchResponse.from(saved);
     }
@@ -482,7 +483,7 @@ public class BracketService {
                 throw new RuntimeException("대회 정보가 일치하지 않습니다.");
             }
 
-            match.updateSchedule(schedule.getScheduledAt());
+            match.updateSchedule(schedule.getScheduledAt(), schedule.getVenueName());
             updatedMatches.add(match);
         }
 

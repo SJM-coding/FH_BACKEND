@@ -95,6 +95,12 @@ public class TournamentMatch {
     private LocalDateTime scheduledAt;
 
     /**
+     * 경기장 이름
+     */
+    @Column(length = 100)
+    private String venueName;
+
+    /**
      * 경기 시작 시간
      */
     @Column
@@ -207,8 +213,9 @@ public class TournamentMatch {
     /**
      * 경기 일정 업데이트
      */
-    public void updateSchedule(LocalDateTime scheduledAt) {
+    public void updateSchedule(LocalDateTime scheduledAt, String venueName) {
         this.scheduledAt = scheduledAt;
+        this.venueName = venueName;
     }
 
     /**

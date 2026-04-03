@@ -40,7 +40,7 @@ public class BracketController {
         }
 
         try {
-            generatorService.generateBracket(tournamentId, request.getParticipatingTeamIds());
+            generatorService.generateBracket(tournamentId, request);
             return ResponseEntity.ok().body(Map.of("message", "대진표가 생성되었습니다."));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
