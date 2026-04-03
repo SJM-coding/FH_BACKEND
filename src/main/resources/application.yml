@@ -31,3 +31,6 @@ server:
 app:
   poster:
     default-url: ${DEFAULT_POSTER_URL:/static/images/default-poster.png}
+  view-count:
+    redis:
+      flush-interval-ms: ${VIEW_COUNT_REDIS_FLUSH_INTERVAL_MS:5000}

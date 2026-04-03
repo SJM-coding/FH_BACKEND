@@ -28,11 +28,14 @@ public class TournamentService {
     private static final int CODE_LENGTH = 6;
 
     private final TournamentRepository tournamentRepository;
+    private final TournamentViewCountService tournamentViewCountService;
     private final String defaultPosterUrl;
 
     public TournamentService(TournamentRepository tournamentRepository,
+                             TournamentViewCountService tournamentViewCountService,
                              @Value("${app.poster.default-url:}") String defaultPosterUrl) {
         this.tournamentRepository = tournamentRepository;
+        this.tournamentViewCountService = tournamentViewCountService;
         this.defaultPosterUrl = defaultPosterUrl;
     }
 
@@ -176,6 +179,10 @@ public class TournamentService {
     }
 
     private TournamentResponse toResponse(Tournament tournament) {
+        return toResponse(tournament, tournament.getViewCount());
+    }
+
+    private TournamentResponse toResponse(Tournament tournament, int viewCount) {
         return new TournamentResponse(
                 tournament.getId(),
                 tournament.getTitle(),
@@ -184,7 +191,7 @@ public class TournamentService {
                 tournament.getPlayerType(),
                 tournament.getGender(),
                 tournament.getDescription(),
-                tournament.getViewCount(),
+                viewCount,
                 tournament.getOriginalLink(),
                 tournament.getTournamentType().name(),
                 tournament.getMaxTeams(),
@@ -303,10 +310,8 @@ public class TournamentService {
         Tournament tournament = tournamentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("대회를 찾을 수 없습니다: " + id));
 
-        // 조회수 원자적 증가 (race condition 방지)
-        tournamentRepository.incrementViewCount(id);
-
-        return toResponse(tournament);
+        int visibleViewCount = tournamentViewCountService.recordViewAndGetVisibleCount(tournament);
+        return toResponse(tournament, visibleViewCount);
     }
 
     /**
