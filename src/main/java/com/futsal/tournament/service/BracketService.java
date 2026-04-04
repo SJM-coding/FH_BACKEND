@@ -508,9 +508,31 @@ public class BracketService {
             throw new RuntimeException("대회 정보가 일치하지 않습니다.");
         }
 
+        boolean isKnockoutMatch = match.getTournament().getTournamentType() == TournamentType.SINGLE_ELIMINATION
+                || (match.getTournament().getTournamentType() == TournamentType.GROUP_STAGE && match.getGroupId() == null);
+
+        boolean isDrawInRegularTime = request.getTeam1Score() != null
+                && request.getTeam2Score() != null
+                && request.getTeam1Score().equals(request.getTeam2Score());
+
+        if (isKnockoutMatch && isDrawInRegularTime) {
+            if (request.getTeam1PenaltyScore() == null || request.getTeam2PenaltyScore() == null) {
+                throw new RuntimeException("결선 토너먼트 동점 경기는 승부차기 점수를 입력해야 합니다.");
+            }
+            if (request.getTeam1PenaltyScore().equals(request.getTeam2PenaltyScore())) {
+                throw new RuntimeException("승부차기 점수는 동점일 수 없습니다.");
+            }
+        }
+
+        if (!isKnockoutMatch && (request.getTeam1PenaltyScore() != null || request.getTeam2PenaltyScore() != null)) {
+            throw new RuntimeException("조별리그 경기에는 승부차기 점수를 입력할 수 없습니다.");
+        }
+
         match.recordResult(
                 request.getTeam1Score(),
-                request.getTeam2Score()
+                request.getTeam2Score(),
+                request.getTeam1PenaltyScore(),
+                request.getTeam2PenaltyScore()
         );
 
         TournamentMatch saved = matchRepository.save(match);
