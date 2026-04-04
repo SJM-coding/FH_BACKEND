@@ -28,12 +28,14 @@ public class MatchResponse {
     private String team1Name;
     private String team1LogoUrl;
     private Integer team1Score;
+    private Integer team1PenaltyScore;
 
     // Team 2
     private Long team2Id;
     private String team2Name;
     private String team2LogoUrl;
     private Integer team2Score;
+    private Integer team2PenaltyScore;
 
     // 승자
     private Long winnerId;
@@ -61,6 +63,8 @@ public class MatchResponse {
                 .groupId(match.getGroupId())
                 .team1Score(match.getTeam1Score())
                 .team2Score(match.getTeam2Score())
+                .team1PenaltyScore(match.getTeam1PenaltyScore())
+                .team2PenaltyScore(match.getTeam2PenaltyScore())
                 .status(match.getStatus().name())
                 .scheduledAt(match.getScheduledAt())
                 .venueName(match.getVenueName())

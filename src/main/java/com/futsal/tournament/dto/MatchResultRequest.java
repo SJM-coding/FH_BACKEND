@@ -14,4 +14,6 @@ public class MatchResultRequest {
 
     private Integer team1Score;
     private Integer team2Score;
+    private Integer team1PenaltyScore;
+    private Integer team2PenaltyScore;
 }
