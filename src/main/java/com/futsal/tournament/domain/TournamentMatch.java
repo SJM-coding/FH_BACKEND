@@ -74,6 +74,18 @@ public class TournamentMatch {
     private Integer team2Score;
 
     /**
+     * 팀1 승부차기 득점
+     */
+    @Column(name = "team1penalty_score")
+    private Integer team1PenaltyScore;
+
+    /**
+     * 팀2 승부차기 득점
+     */
+    @Column(name = "team2penalty_score")
+    private Integer team2PenaltyScore;
+
+    /**
      * 승자 팀
      */
     @ManyToOne(fetch = FetchType.LAZY)
@@ -163,15 +175,18 @@ public class TournamentMatch {
     }
 
     /**
-     * 경기 결과 입력
+     * 경기 결과 입력 (승부차기 포함)
      */
-    public void recordResult(Integer team1Score, Integer team2Score) {
+    public void recordResult(Integer team1Score, Integer team2Score,
+                             Integer team1PenaltyScore, Integer team2PenaltyScore) {
         if (team1 == null || team2 == null) {
             throw new IllegalStateException("양 팀이 모두 배정되어야 결과를 입력할 수 있습니다.");
         }
 
         this.team1Score = team1Score;
         this.team2Score = team2Score;
+        this.team1PenaltyScore = team1PenaltyScore;
+        this.team2PenaltyScore = team2PenaltyScore;
 
         // 승자 결정
         determineWinner();
@@ -181,15 +196,46 @@ public class TournamentMatch {
     }
 
     /**
-     * 승자 결정 (무승부 허용)
+     * 경기 결과 입력 (승부차기 없이)
+     */
+    public void recordResult(Integer team1Score, Integer team2Score) {
+        recordResult(team1Score, team2Score, null, null);
+    }
+
+    /**
+     * 승자 결정 (정규 시간 동점 시 승부차기로 결정)
      */
     private void determineWinner() {
         if (team1Score > team2Score) {
             this.winner = team1;
         } else if (team2Score > team1Score) {
             this.winner = team2;
+        } else {
+            // 동점인 경우 승부차기로 결정
+            if (team1PenaltyScore != null && team2PenaltyScore != null) {
+                if (team1PenaltyScore > team2PenaltyScore) {
+                    this.winner = team1;
+                } else if (team2PenaltyScore > team1PenaltyScore) {
+                    this.winner = team2;
+                }
+                // 승부차기도 동점이면 winner = null
+            }
+            // 승부차기 없으면 무승부 (winner = null)
         }
-        // 동점인 경우 무승부 (winner = null)
+    }
+
+    /**
+     * 동점 여부
+     */
+    public boolean isDrawInRegularTime() {
+        return team1Score != null && team2Score != null && team1Score.equals(team2Score);
+    }
+
+    /**
+     * 승부차기 진행 여부
+     */
+    public boolean hasPenaltyShootout() {
+        return team1PenaltyScore != null && team2PenaltyScore != null;
     }
 
     /**
