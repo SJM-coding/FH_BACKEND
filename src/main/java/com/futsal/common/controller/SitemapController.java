@@ -3,6 +3,7 @@ package com.futsal.common.controller;
 import com.futsal.tournament.dto.TournamentListResponse;
 import com.futsal.tournament.service.TournamentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -13,7 +14,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SitemapController {
 
-  private static final String BASE_URL = "https://www.amfutsalhub.com";
+  @Value("${app.base-url}")
+  private String baseUrl;
 
   private final TournamentService tournamentService;
 
@@ -26,13 +28,13 @@ public class SitemapController {
     xml.append("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n");
 
     xml.append("  <url>\n");
-    xml.append("    <loc>").append(BASE_URL).append("/</loc>\n");
+    xml.append("    <loc>").append(baseUrl).append("/</loc>\n");
     xml.append("    <changefreq>daily</changefreq>\n");
     xml.append("    <priority>1.0</priority>\n");
     xml.append("  </url>\n");
 
     xml.append("  <url>\n");
-    xml.append("    <loc>").append(BASE_URL).append("/tournaments</loc>\n");
+    xml.append("    <loc>").append(baseUrl).append("/tournaments</loc>\n");
     xml.append("    <changefreq>daily</changefreq>\n");
     xml.append("    <priority>0.9</priority>\n");
     xml.append("  </url>\n");
@@ -40,7 +42,7 @@ public class SitemapController {
     for (TournamentListResponse t : tournaments) {
       xml.append("  <url>\n");
       xml.append("    <loc>")
-        .append(BASE_URL)
+        .append(baseUrl)
         .append("/tournaments/")
         .append(t.getId())
         .append("</loc>\n");
