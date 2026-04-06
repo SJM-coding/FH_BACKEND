@@ -156,18 +156,6 @@ public class TournamentService {
         return responses;
     }
 
-    /**
-     * Phase 2-5: 날짜 지난 대회 자동 삭제
-     */
-    @Transactional
-    public int deleteExpiredTournaments() {
-        LocalDate today = LocalDate.now();
-        List<Tournament> expiredTournaments = tournamentRepository.findByTournamentDateBefore(today);
-        int count = expiredTournaments.size();
-        tournamentRepository.deleteAll(expiredTournaments);
-        return count;
-    }
-
     private List<String> normalizePosterUrls(List<String> posterUrls) {
         if (posterUrls == null || posterUrls.isEmpty()) {
             if (defaultPosterUrl != null && !defaultPosterUrl.isBlank()) {

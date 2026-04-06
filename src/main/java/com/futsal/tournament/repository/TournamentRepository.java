@@ -226,9 +226,6 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
             Pageable pageable
     );
 
-    // Phase 2-5: 특정 날짜 이전 대회 조회 (자동 삭제용)
-    List<Tournament> findByTournamentDateBefore(LocalDate date);
-
     // 참가 코드 관련
     boolean existsByParticipantCode(String participantCode);
     java.util.Optional<Tournament> findByParticipantCode(String participantCode);
