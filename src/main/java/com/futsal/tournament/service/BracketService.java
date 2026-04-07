@@ -11,8 +11,6 @@ import com.futsal.tournament.repository.TournamentRepository;
 import com.futsal.user.domain.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -38,7 +36,6 @@ public class BracketService {
      * 대진표 전체 조회
      */
     @Transactional(readOnly = true)
-    @Cacheable(cacheNames = "bracket", key = "#tournamentId")
     public BracketResponse getBracket(Long tournamentId) {
         log.info("대진표 조회 시작: tournamentId={}", tournamentId);
 
@@ -432,7 +429,6 @@ public class BracketService {
      * 경기 일정 업데이트
      */
     @Transactional
-    @CacheEvict(cacheNames = "bracket", key = "#tournamentId")
     public MatchResponse updateMatchSchedule(Long tournamentId, Long matchId, MatchScheduleRequest request) {
         TournamentMatch match = matchRepository.findById(matchId)
                 .orElseThrow(() -> new RuntimeException("경기를 찾을 수 없습니다: " + matchId));
@@ -454,7 +450,6 @@ public class BracketService {
      * 경기 일정 일괄 업데이트
      */
     @Transactional
-    @CacheEvict(cacheNames = "bracket", key = "#tournamentId")
     public List<MatchResponse> updateMatchSchedules(Long tournamentId, BatchMatchScheduleRequest request) {
         if (request.getSchedules() == null || request.getSchedules().isEmpty()) {
             throw new RuntimeException("저장할 경기 일정이 없습니다.");
@@ -499,7 +494,6 @@ public class BracketService {
      * 경기 결과 입력
      */
     @Transactional
-    @CacheEvict(cacheNames = "bracket", key = "#tournamentId")
     public MatchResponse recordMatchResult(Long tournamentId, Long matchId, MatchResultRequest request) {
         TournamentMatch match = matchRepository.findById(matchId)
                 .orElseThrow(() -> new RuntimeException("경기를 찾을 수 없습니다: " + matchId));
@@ -776,7 +770,6 @@ public class BracketService {
      * - 이미지 업로드 후 MANUAL 모드로 전환
      */
     @Transactional
-    @CacheEvict(cacheNames = "bracket", key = "#tournamentId")
     public BracketResponse uploadBracketImages(Long tournamentId, List<MultipartFile> files, User user) {
         Tournament tournament = tournamentRepository.findById(tournamentId)
                 .orElseThrow(() -> new RuntimeException("대회를 찾을 수 없습니다: " + tournamentId));
@@ -820,7 +813,6 @@ public class BracketService {
      * 대진표 이미지 삭제 (자동 생성 모드로 전환)
      */
     @Transactional
-    @CacheEvict(cacheNames = "bracket", key = "#tournamentId")
     public void clearBracketImages(Long tournamentId, User user) {
         Tournament tournament = tournamentRepository.findById(tournamentId)
                 .orElseThrow(() -> new RuntimeException("대회를 찾을 수 없습니다: " + tournamentId));
@@ -842,7 +834,6 @@ public class BracketService {
      * 동점 상황에서 개최자가 직접 진출팀을 선택할 때 사용
      */
     @Transactional
-    @CacheEvict(cacheNames = "bracket", key = "#tournamentId")
     public BracketResponse selectQualifiersAndGenerateKnockout(
             Long tournamentId,
             QualifierSelectionRequest request,
@@ -860,7 +851,6 @@ public class BracketService {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = "bracket", key = "#tournamentId")
     public BracketResponse selectQualifiersAndGenerateKnockoutByShareCode(
             Long tournamentId,
             QualifierSelectionRequest request) {
@@ -942,6 +932,139 @@ public class BracketService {
         assignTeamsToKnockoutMatches(tournament, qualifiedTeams, knockoutMatches, groups.size());
 
         // 업데이트된 대진표 반환
+        return getBracket(tournamentId);
+    }
+
+    /**
+     * 조별리그 결선 1라운드 팀 수동 재배치
+     */
+    @Transactional
+    public BracketResponse updateKnockoutAssignments(
+            Long tournamentId,
+            KnockoutMatchAssignmentRequest request,
+            User user
+    ) {
+        Tournament tournament = tournamentRepository.findById(tournamentId)
+                .orElseThrow(() -> new RuntimeException("대회를 찾을 수 없습니다: " + tournamentId));
+
+        if (!tournament.isRegisteredBy(user.getId())) {
+            throw new RuntimeException("대진표를 수정할 권한이 없습니다.");
+        }
+
+        if (tournament.getTournamentType() != TournamentType.GROUP_STAGE) {
+            throw new RuntimeException("조별리그 결선 토너먼트에서만 사용할 수 있습니다.");
+        }
+
+        if (!Boolean.TRUE.equals(tournament.getBracketGenerated()) || tournament.isManualBracket()) {
+            throw new RuntimeException("자동 생성된 대진표에서만 사용할 수 있습니다.");
+        }
+
+        List<TournamentMatch> allMatches = matchRepository.findByTournamentIdWithTeams(tournamentId);
+        List<TournamentMatch> knockoutMatches = allMatches.stream()
+                .filter(m -> m.getGroupId() == null && m.getRound() > 1)
+                .collect(Collectors.toList());
+
+        if (knockoutMatches.isEmpty()) {
+            throw new RuntimeException("결선 토너먼트가 아직 생성되지 않았습니다.");
+        }
+
+        boolean knockoutStarted = knockoutMatches.stream()
+                .anyMatch(m -> m.getStatus() != TournamentMatch.MatchStatus.SCHEDULED);
+        if (knockoutStarted) {
+            throw new RuntimeException("결선 경기가 시작된 이후에는 대진을 수정할 수 없습니다.");
+        }
+
+        int firstKnockoutRound = knockoutMatches.stream()
+                .map(TournamentMatch::getRound)
+                .min(Integer::compareTo)
+                .orElseThrow(() -> new RuntimeException("결선 라운드를 찾을 수 없습니다."));
+
+        List<TournamentMatch> firstRoundMatches = knockoutMatches.stream()
+                .filter(m -> m.getRound() == firstKnockoutRound)
+                .sorted(Comparator.comparing(TournamentMatch::getMatchNumber))
+                .collect(Collectors.toList());
+
+        if (firstRoundMatches.isEmpty()) {
+            throw new RuntimeException("결선 1라운드 경기를 찾을 수 없습니다.");
+        }
+
+        boolean hasUnassignedSlot = firstRoundMatches.stream()
+                .anyMatch(m -> m.getTeam1() == null || m.getTeam2() == null);
+        if (hasUnassignedSlot) {
+            throw new RuntimeException("아직 팀 배정이 완료되지 않은 결선 경기입니다.");
+        }
+
+        if (request == null || request.getAssignments() == null || request.getAssignments().isEmpty()) {
+            throw new RuntimeException("수정할 결선 대진 정보가 없습니다.");
+        }
+
+        Map<Long, TournamentMatch> firstRoundMatchMap = firstRoundMatches.stream()
+                .collect(Collectors.toMap(TournamentMatch::getId, match -> match));
+
+        if (request.getAssignments().size() != firstRoundMatches.size()) {
+            throw new RuntimeException("결선 1라운드 경기 수와 요청 데이터가 일치하지 않습니다.");
+        }
+
+        Set<Long> currentTeamIds = firstRoundMatches.stream()
+                .flatMap(match -> java.util.stream.Stream.of(match.getTeam1(), match.getTeam2()))
+                .map(Team::getId)
+                .collect(Collectors.toSet());
+
+        Set<Long> requestedMatchIds = new HashSet<>();
+        Set<Long> requestedTeamIds = new HashSet<>();
+
+        for (KnockoutMatchAssignmentRequest.MatchAssignment assignment : request.getAssignments()) {
+            if (assignment.getMatchId() == null) {
+                throw new RuntimeException("경기 ID가 누락되었습니다.");
+            }
+            if (!requestedMatchIds.add(assignment.getMatchId())) {
+                throw new RuntimeException("같은 경기가 중복 요청되었습니다.");
+            }
+
+            TournamentMatch match = firstRoundMatchMap.get(assignment.getMatchId());
+            if (match == null) {
+                throw new RuntimeException("결선 1라운드가 아닌 경기가 포함되어 있습니다.");
+            }
+
+            Long team1Id = assignment.getTeam1Id();
+            Long team2Id = assignment.getTeam2Id();
+
+            if (team1Id == null || team2Id == null) {
+                throw new RuntimeException("각 경기에는 양 팀이 모두 지정되어야 합니다.");
+            }
+            if (team1Id.equals(team2Id)) {
+                throw new RuntimeException("한 경기에는 같은 팀을 중복 배정할 수 없습니다.");
+            }
+
+            requestedTeamIds.add(team1Id);
+            requestedTeamIds.add(team2Id);
+        }
+
+        if (!requestedMatchIds.equals(firstRoundMatchMap.keySet())) {
+            throw new RuntimeException("결선 1라운드 전체 경기에 대한 배정 정보가 필요합니다.");
+        }
+
+        if (!requestedTeamIds.equals(currentTeamIds)) {
+            throw new RuntimeException("현재 결선 진출팀 범위 안에서만 대진을 재배치할 수 있습니다.");
+        }
+
+        Map<Long, Team> teamMap = teamRepository.findAllById(currentTeamIds).stream()
+                .collect(Collectors.toMap(Team::getId, team -> team));
+
+        for (KnockoutMatchAssignmentRequest.MatchAssignment assignment : request.getAssignments()) {
+            TournamentMatch match = firstRoundMatchMap.get(assignment.getMatchId());
+            Team team1 = teamMap.get(assignment.getTeam1Id());
+            Team team2 = teamMap.get(assignment.getTeam2Id());
+
+            if (team1 == null || team2 == null) {
+                throw new RuntimeException("결선 진출팀 정보를 찾을 수 없습니다.");
+            }
+
+            match.assignTeam1(team1);
+            match.assignTeam2(team2);
+            matchRepository.save(match);
+        }
+
         return getBracket(tournamentId);
     }
 }
