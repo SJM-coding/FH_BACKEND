@@ -6,11 +6,13 @@ import com.futsal.tournament.domain.Tournament;
 import com.futsal.tournament.domain.TournamentType;
 import com.futsal.tournament.dto.TournamentCreateRequest;
 import com.futsal.tournament.dto.TournamentListResponse;
+import com.futsal.tournament.dto.TournamentPageResponse;
 import com.futsal.tournament.dto.TournamentResponse;
 import com.futsal.tournament.dto.TournamentUpdateRequest;
 import com.futsal.tournament.repository.TournamentRepository;
 import com.futsal.user.domain.User;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -231,66 +233,50 @@ public class TournamentService {
     }
 
     /**
-     * 대회 목록 조회 (gender, playerType, limit 필터링 가능)
-     * - limit이 있고 gender/playerType 둘 다 있으면 DB에서 LIMIT 적용
-     * - limit이 없으면 전체 조회 후 최신순 정렬
+     * 대회 목록 페이지네이션 조회 (서버 정렬 + 필터)
+     * 정렬: 진행중(오늘) > 모집중 > 예정 > 종료, 같은 상태면 날짜순
      */
     @Transactional(readOnly = true)
-    public List<TournamentListResponse> getTournaments(String genderStr, String playerTypeStr, Integer limit) {
+    public TournamentPageResponse getTournaments(
+        String genderStr, String playerTypeStr, String recruitmentStatus,
+        int page, int size
+    ) {
         Gender gender = parseGender(genderStr);
         PlayerType playerType = parsePlayerType(playerTypeStr);
+        String status = (recruitmentStatus != null && !recruitmentStatus.isBlank())
+            ? recruitmentStatus : null;
 
-        List<TournamentListResponse> responses;
+        Page<TournamentListResponse> result = tournamentRepository.findPaged(
+            gender, playerType, status, PageRequest.of(page, size)
+        );
 
-        // limit이 있고 gender/playerType 둘 다 있으면 DB 레벨에서 LIMIT 적용
-        if (limit != null && limit > 0 && gender != null && playerType != null) {
-            responses = tournamentRepository.findListByGenderAndPlayerTypeWithLimit(
-                    gender, playerType, PageRequest.of(0, limit));
-            populatePosterUrls(responses);
-            return responses;
-        }
+        List<TournamentListResponse> content = result.getContent();
+        populatePosterUrls(content);
 
-        // limit이 있고 gender만 있으면 (MIXED 등) DB 레벨에서 LIMIT 적용
-        if (limit != null && limit > 0 && gender != null && playerType == null) {
-            responses = tournamentRepository.findListByGenderWithLimit(
-                    gender, PageRequest.of(0, limit));
-            populatePosterUrls(responses);
-            return responses;
-        }
-
-        // 그 외: 전체 조회
-        if (gender != null && playerType != null) {
-            responses = tournamentRepository.findListByGenderAndPlayerType(gender, playerType);
-        } else if (gender != null) {
-            responses = tournamentRepository.findListByGender(gender);
-        } else if (playerType != null) {
-            responses = tournamentRepository.findListByPlayerType(playerType);
-        } else {
-            responses = tournamentRepository.findListAll();
-        }
-        populatePosterUrls(responses);
-
-        // 최신순 정렬 (날짜 내림차순)
-        responses.sort((a, b) -> b.getTournamentDate().compareTo(a.getTournamentDate()));
-        return responses;
+        return new TournamentPageResponse(content, result.hasNext(), result.getTotalElements());
     }
-    
+
     /**
-     * 전체 대회 목록 조회 (날짜순) - 호환성을 위해 유지
+     * 키워드 검색 페이지네이션
+     */
+    @Transactional(readOnly = true)
+    public TournamentPageResponse searchTournaments(String keyword, int page, int size) {
+        Page<TournamentListResponse> result = tournamentRepository.findPagedByKeyword(
+            keyword, PageRequest.of(page, size)
+        );
+
+        List<TournamentListResponse> content = result.getContent();
+        populatePosterUrls(content);
+
+        return new TournamentPageResponse(content, result.hasNext(), result.getTotalElements());
+    }
+
+    /**
+     * 사이트맵용 전체 목록
      */
     @Transactional(readOnly = true)
     public List<TournamentListResponse> getAllTournaments() {
-        return getTournaments(null, null, null);
-    }
-
-    /**
-     * 키워드 검색
-     */
-    @Transactional(readOnly = true)
-    public List<TournamentListResponse> searchTournaments(String keyword) {
-        List<TournamentListResponse> responses = tournamentRepository.findListByKeyword(keyword);
-        populatePosterUrls(responses);
-        return responses;
+        return tournamentRepository.findListAll();
     }
 
     /**
@@ -341,6 +327,7 @@ public class TournamentService {
         tournamentRepository.deleteById(id);
     }
 
+    @SuppressWarnings("unchecked")
     private void populatePosterUrls(List<TournamentListResponse> responses) {
         if (responses == null || responses.isEmpty()) {
             return;
@@ -350,14 +337,14 @@ public class TournamentService {
                 .map(TournamentListResponse::getId)
                 .collect(Collectors.toList());
 
-        // posterUrls가 JSON 컬럼이므로 Tournament 엔티티에서 직접 조회
-        List<Tournament> tournaments = tournamentRepository.findAllById(ids);
+        List<Object[]> results = tournamentRepository.findPosterUrlsByIds(ids);
 
         java.util.Map<Long, String> firstPosterByTournamentId = new java.util.HashMap<>();
-        for (Tournament tournament : tournaments) {
-            List<String> posterUrls = tournament.getPosterUrls();
+        for (Object[] row : results) {
+            Long id = (Long) row[0];
+            List<String> posterUrls = (List<String>) row[1];
             if (posterUrls != null && !posterUrls.isEmpty()) {
-                firstPosterByTournamentId.put(tournament.getId(), posterUrls.get(0));
+                firstPosterByTournamentId.put(id, posterUrls.get(0));
             }
         }
 

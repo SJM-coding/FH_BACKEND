@@ -1,6 +1,7 @@
 package com.futsal.tournament.controller;
 
 import com.futsal.tournament.dto.TournamentCreateRequest;
+import com.futsal.tournament.dto.TournamentPageResponse;
 import com.futsal.tournament.dto.TournamentResponse;
 import com.futsal.tournament.dto.TournamentListResponse;
 import com.futsal.tournament.dto.TournamentResultRequest;
@@ -71,14 +72,17 @@ public class TournamentController {
     }
 
     /**
-     * 키워드 검색
-     * GET /api/tournaments/search?keyword={keyword}
-     * (id 경로 변수보다 먼저 매핑되어야 함)
+     * 키워드 검색 페이지네이션
+     * GET /api/tournaments/search?keyword={keyword}&page=0&size=12
      */
     @GetMapping("/search")
-    public ResponseEntity<List<TournamentListResponse>> searchTournaments(@RequestParam String keyword) {
-        List<TournamentListResponse> tournaments = tournamentService.searchTournaments(keyword);
-        return ResponseEntity.ok(tournaments);
+    public ResponseEntity<TournamentPageResponse> searchTournaments(
+            @RequestParam String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "12") int size
+    ) {
+        TournamentPageResponse response = tournamentService.searchTournaments(keyword, page, size);
+        return ResponseEntity.ok(response);
     }
 
     /**
@@ -98,17 +102,21 @@ public class TournamentController {
     }
 
     /**
-     * 전체 대회 목록 조회
-     * GET /api/tournaments
+     * 대회 목록 페이지네이션 조회
+     * GET /api/tournaments?page=0&size=12&gender=MALE&playerType=NON_PRO&recruitmentStatus=OPEN
      */
     @GetMapping
-    public ResponseEntity<List<TournamentListResponse>> getAllTournaments(
+    public ResponseEntity<TournamentPageResponse> getAllTournaments(
             @RequestParam(required = false) String gender,
             @RequestParam(required = false) String playerType,
-            @RequestParam(required = false) Integer limit
+            @RequestParam(required = false) String recruitmentStatus,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "12") int size
     ) {
-        List<TournamentListResponse> tournaments = tournamentService.getTournaments(gender, playerType, limit);
-        return ResponseEntity.ok(tournaments);
+        TournamentPageResponse response = tournamentService.getTournaments(
+            gender, playerType, recruitmentStatus, page, size
+        );
+        return ResponseEntity.ok(response);
     }
 
     /**
