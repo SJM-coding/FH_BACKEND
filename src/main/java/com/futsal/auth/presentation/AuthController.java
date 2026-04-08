@@ -34,9 +34,9 @@ public class AuthController {
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenService refreshTokenService;
     private final UserRepository userRepository;
-    private final com.futsal.auth.service.OAuth2CodeService oauth2CodeService;
+    private final com.futsal.auth.application.OAuth2CodeService oauth2CodeService;
     private final UserService userService;
-    private final com.futsal.common.storage.S3Service s3Service;
+    private final com.futsal.shared.infrastructure.S3Service s3Service;
 
     @Value("${app.jwt.access-cookie-name:accessToken}")
     private String accessCookieName;
