@@ -1,7 +1,7 @@
 package com.futsal.common.controller;
 
-import com.futsal.tournament.dto.TournamentListResponse;
-import com.futsal.tournament.service.TournamentService;
+import com.futsal.tournament.presentation.dto.TournamentListResponse;
+import com.futsal.tournament.application.TournamentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;

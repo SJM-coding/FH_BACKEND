@@ -28,7 +28,7 @@ import com.futsal.team.repository.TeamMemberRepository;
 import com.futsal.team.repository.TeamRepository;
 import com.futsal.team.repository.TeamTacticsRepository;
 import com.futsal.tournament.domain.TournamentParticipant;
-import com.futsal.tournament.repository.TournamentParticipantRepository;
+import com.futsal.tournament.infrastructure.TournamentParticipantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
