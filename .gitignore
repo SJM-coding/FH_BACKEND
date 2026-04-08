@@ -25,3 +25,7 @@ tmp/
 # OS
 .DS_Store
 Thumbs.db
+
+tournament-viewcount.js
+
+*.js

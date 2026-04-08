@@ -5,6 +5,7 @@ import com.futsal.tournament.domain.PlayerType;
 import com.futsal.tournament.domain.Tournament;
 import com.futsal.tournament.dto.TournamentListResponse;
 import com.futsal.user.domain.User;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -18,240 +19,160 @@ import java.util.List;
 @Repository
 public interface TournamentRepository extends JpaRepository<Tournament, Long> {
 
-    // 키워드 검색 (제목 또는 장소에 키워드 포함)
-    @Query("SELECT t FROM Tournament t LEFT JOIN FETCH t.registeredBy WHERE t.title LIKE CONCAT('%', :keyword, '%') OR t.location LIKE CONCAT('%', :keyword, '%') ORDER BY t.tournamentDate ASC")
-    List<Tournament> findByKeyword(@Param("keyword") String keyword);
+  // 페이지네이션 + 필터 + 서버 정렬 통합 쿼리
+  // 정렬: 진행중(오늘) > 모집중 > 예정 > 종료, 같은 상태면 날짜순
+  @Query(value = """
+      SELECT new com.futsal.tournament.dto.TournamentListResponse(
+          t.id,
+          t.title,
+          t.tournamentDate,
+          t.location,
+          t.recruitmentStatus,
+          '',
+          u.nickname,
+          u.profileImageUrl,
+          t.gender,
+          t.playerType,
+          t.isExternal,
+          u.verificationStatus
+      )
+      FROM Tournament t
+      LEFT JOIN t.registeredBy u
+      WHERE (:gender IS NULL OR t.gender = :gender)
+        AND (:playerType IS NULL OR t.playerType = :playerType)
+        AND (:recruitmentStatus IS NULL OR t.recruitmentStatus = :recruitmentStatus)
+      ORDER BY
+          CASE
+              WHEN t.tournamentDate = CURRENT_DATE THEN 0
+              WHEN t.recruitmentStatus = 'OPEN'    THEN 1
+              WHEN t.tournamentDate < CURRENT_DATE THEN 3
+              ELSE 2
+          END ASC,
+          t.tournamentDate ASC
+      """,
+      countQuery = """
+      SELECT COUNT(t)
+      FROM Tournament t
+      WHERE (:gender IS NULL OR t.gender = :gender)
+        AND (:playerType IS NULL OR t.playerType = :playerType)
+        AND (:recruitmentStatus IS NULL OR t.recruitmentStatus = :recruitmentStatus)
+      """)
+  Page<TournamentListResponse> findPaged(
+      @Param("gender") Gender gender,
+      @Param("playerType") PlayerType playerType,
+      @Param("recruitmentStatus") String recruitmentStatus,
+      Pageable pageable
+  );
 
-    // 날짜순 전체 조회
-    @Query("SELECT t FROM Tournament t LEFT JOIN FETCH t.registeredBy ORDER BY t.tournamentDate ASC")
-    List<Tournament> findAllByOrderByTournamentDateAsc();
+  // 키워드 검색 페이지네이션
+  @Query(value = """
+      SELECT new com.futsal.tournament.dto.TournamentListResponse(
+          t.id,
+          t.title,
+          t.tournamentDate,
+          t.location,
+          t.recruitmentStatus,
+          '',
+          u.nickname,
+          u.profileImageUrl,
+          t.gender,
+          t.playerType,
+          t.isExternal,
+          u.verificationStatus
+      )
+      FROM Tournament t
+      LEFT JOIN t.registeredBy u
+      WHERE t.title LIKE CONCAT('%', :keyword, '%')
+         OR t.location LIKE CONCAT('%', :keyword, '%')
+      ORDER BY
+          CASE
+              WHEN t.tournamentDate = CURRENT_DATE THEN 0
+              WHEN t.recruitmentStatus = 'OPEN'    THEN 1
+              WHEN t.tournamentDate < CURRENT_DATE THEN 3
+              ELSE 2
+          END ASC,
+          t.tournamentDate ASC
+      """,
+      countQuery = """
+      SELECT COUNT(t)
+      FROM Tournament t
+      WHERE t.title LIKE CONCAT('%', :keyword, '%')
+         OR t.location LIKE CONCAT('%', :keyword, '%')
+      """)
+  Page<TournamentListResponse> findPagedByKeyword(
+      @Param("keyword") String keyword,
+      Pageable pageable
+  );
 
-    // Phase 2-3: 특정 사용자가 등록한 대회 조회
-    @Query("SELECT t FROM Tournament t LEFT JOIN FETCH t.registeredBy WHERE t.registeredBy = :registeredBy ORDER BY t.createdAt DESC")
-    List<Tournament> findByRegisteredByOrderByCreatedAtDesc(@Param("registeredBy") User registeredBy);
+  // posterUrls만 조회 (id + posterUrls)
+  @Query("SELECT t.id, t.posterUrls FROM Tournament t WHERE t.id IN :ids")
+  List<Object[]> findPosterUrlsByIds(@Param("ids") List<Long> ids);
 
-    // 목록용 프로젝션: 전체 조회
-    @Query("""
-        SELECT new com.futsal.tournament.dto.TournamentListResponse(
-            t.id,
-            t.title,
-            t.tournamentDate,
-            t.location,
-            t.recruitmentStatus,
-            '',
-            u.nickname,
-            u.profileImageUrl,
-            t.gender,
-            t.playerType,
-            t.isExternal,
-            u.verificationStatus
-        )
-        FROM Tournament t
-        LEFT JOIN t.registeredBy u
-        ORDER BY t.tournamentDate ASC
-    """)
-    List<TournamentListResponse> findListAll();
+  // 사이트맵용 전체 목록 (id, tournamentDate만 필요)
+  @Query("""
+      SELECT new com.futsal.tournament.dto.TournamentListResponse(
+          t.id,
+          t.title,
+          t.tournamentDate,
+          t.location,
+          t.recruitmentStatus,
+          '',
+          u.nickname,
+          u.profileImageUrl,
+          t.gender,
+          t.playerType,
+          t.isExternal,
+          u.verificationStatus
+      )
+      FROM Tournament t
+      LEFT JOIN t.registeredBy u
+      ORDER BY t.tournamentDate ASC
+      """)
+  List<TournamentListResponse> findListAll();
 
-    // 목록용 프로젝션: 키워드 검색
-    @Query("""
-        SELECT new com.futsal.tournament.dto.TournamentListResponse(
-            t.id,
-            t.title,
-            t.tournamentDate,
-            t.location,
-            t.recruitmentStatus,
-            '',
-            u.nickname,
-            u.profileImageUrl,
-            t.gender,
-            t.playerType,
-            t.isExternal,
-            u.verificationStatus
-        )
-        FROM Tournament t
-        LEFT JOIN t.registeredBy u
-        WHERE t.title LIKE CONCAT('%', :keyword, '%')
-           OR t.location LIKE CONCAT('%', :keyword, '%')
-        ORDER BY t.tournamentDate ASC
-    """)
-    List<TournamentListResponse> findListByKeyword(@Param("keyword") String keyword);
+  // 내가 등록한 대회
+  @Query("""
+      SELECT new com.futsal.tournament.dto.TournamentListResponse(
+          t.id,
+          t.title,
+          t.tournamentDate,
+          t.location,
+          t.recruitmentStatus,
+          '',
+          u.nickname,
+          u.profileImageUrl,
+          t.gender,
+          t.playerType,
+          t.isExternal,
+          u.verificationStatus
+      )
+      FROM Tournament t
+      LEFT JOIN t.registeredBy u
+      WHERE t.registeredBy = :registeredBy
+      ORDER BY t.createdAt DESC
+      """)
+  List<TournamentListResponse> findListByRegisteredBy(@Param("registeredBy") User registeredBy);
 
-    // 목록용 프로젝션: 내가 등록한 대회
-    @Query("""
-        SELECT new com.futsal.tournament.dto.TournamentListResponse(
-            t.id,
-            t.title,
-            t.tournamentDate,
-            t.location,
-            t.recruitmentStatus,
-            '',
-            u.nickname,
-            u.profileImageUrl,
-            t.gender,
-            t.playerType,
-            t.isExternal,
-            u.verificationStatus
-        )
-        FROM Tournament t
-        LEFT JOIN t.registeredBy u
-        WHERE t.registeredBy = :registeredBy
-        ORDER BY t.createdAt DESC
-    """)
-    List<TournamentListResponse> findListByRegisteredBy(@Param("registeredBy") User registeredBy);
+  // 참가 코드 관련
+  boolean existsByParticipantCode(String participantCode);
+  java.util.Optional<Tournament> findByParticipantCode(String participantCode);
 
-    // 목록용 프로젝션: gender/playerType 필터
-    @Query("""
-        SELECT new com.futsal.tournament.dto.TournamentListResponse(
-            t.id,
-            t.title,
-            t.tournamentDate,
-            t.location,
-            t.recruitmentStatus,
-            '',
-            u.nickname,
-            u.profileImageUrl,
-            t.gender,
-            t.playerType,
-            t.isExternal,
-            u.verificationStatus
-        )
-        FROM Tournament t
-        LEFT JOIN t.registeredBy u
-        WHERE t.gender = :gender
-        ORDER BY t.tournamentDate ASC
-    """)
-    List<TournamentListResponse> findListByGender(@Param("gender") Gender gender);
+  // 운영진 코드 관련
+  boolean existsByStaffCode(String staffCode);
+  java.util.Optional<Tournament> findByStaffCode(String staffCode);
 
-    @Query("""
-        SELECT new com.futsal.tournament.dto.TournamentListResponse(
-            t.id,
-            t.title,
-            t.tournamentDate,
-            t.location,
-            t.recruitmentStatus,
-            '',
-            u.nickname,
-            u.profileImageUrl,
-            t.gender,
-            t.playerType,
-            t.isExternal,
-            u.verificationStatus
-        )
-        FROM Tournament t
-        LEFT JOIN t.registeredBy u
-        WHERE t.playerType = :playerType
-        ORDER BY t.tournamentDate ASC
-    """)
-    List<TournamentListResponse> findListByPlayerType(@Param("playerType") PlayerType playerType);
+  // 중복 대회 체크
+  boolean existsByTitleAndTournamentDateAndRegisteredBy(
+      String title,
+      LocalDate tournamentDate,
+      User registeredBy
+  );
 
-    @Query("""
-        SELECT new com.futsal.tournament.dto.TournamentListResponse(
-            t.id,
-            t.title,
-            t.tournamentDate,
-            t.location,
-            t.recruitmentStatus,
-            '',
-            u.nickname,
-            u.profileImageUrl,
-            t.gender,
-            t.playerType,
-            t.isExternal,
-            u.verificationStatus
-        )
-        FROM Tournament t
-        LEFT JOIN t.registeredBy u
-        WHERE t.gender = :gender
-          AND t.playerType = :playerType
-        ORDER BY t.tournamentDate ASC
-    """)
-    List<TournamentListResponse> findListByGenderAndPlayerType(
-            @Param("gender") Gender gender,
-            @Param("playerType") PlayerType playerType
-    );
+  @Modifying
+  @Query("UPDATE Tournament t SET t.viewCount = t.viewCount + 1 WHERE t.id = :id")
+  void incrementViewCount(@Param("id") Long id);
 
-    // LIMIT 적용 버전 (Pageable 사용)
-    @Query("""
-        SELECT new com.futsal.tournament.dto.TournamentListResponse(
-            t.id,
-            t.title,
-            t.tournamentDate,
-            t.location,
-            t.recruitmentStatus,
-            '',
-            u.nickname,
-            u.profileImageUrl,
-            t.gender,
-            t.playerType,
-            t.isExternal,
-            u.verificationStatus
-        )
-        FROM Tournament t
-        LEFT JOIN t.registeredBy u
-        WHERE t.gender = :gender
-          AND t.playerType = :playerType
-          AND t.tournamentDate >= CURRENT_DATE
-        ORDER BY t.tournamentDate ASC
-    """)
-    List<TournamentListResponse> findListByGenderAndPlayerTypeWithLimit(
-            @Param("gender") Gender gender,
-            @Param("playerType") PlayerType playerType,
-            Pageable pageable
-    );
-
-    // LIMIT 적용 버전 (Gender만)
-    @Query("""
-        SELECT new com.futsal.tournament.dto.TournamentListResponse(
-            t.id,
-            t.title,
-            t.tournamentDate,
-            t.location,
-            t.recruitmentStatus,
-            '',
-            u.nickname,
-            u.profileImageUrl,
-            t.gender,
-            t.playerType,
-            t.isExternal,
-            u.verificationStatus
-        )
-        FROM Tournament t
-        LEFT JOIN t.registeredBy u
-        WHERE t.gender = :gender
-          AND t.tournamentDate >= CURRENT_DATE
-        ORDER BY t.tournamentDate ASC
-    """)
-    List<TournamentListResponse> findListByGenderWithLimit(
-            @Param("gender") Gender gender,
-            Pageable pageable
-    );
-
-    // Phase 2-5: 특정 날짜 이전 대회 조회 (자동 삭제용)
-    List<Tournament> findByTournamentDateBefore(LocalDate date);
-
-    // 참가 코드 관련
-    boolean existsByParticipantCode(String participantCode);
-    java.util.Optional<Tournament> findByParticipantCode(String participantCode);
-
-    // 운영진 코드 관련
-    boolean existsByStaffCode(String staffCode);
-    java.util.Optional<Tournament> findByStaffCode(String staffCode);
-
-
-    // 중복 대회 체크
-    boolean existsByTitleAndTournamentDateAndRegisteredBy(
-        String title,
-        LocalDate tournamentDate,
-        User registeredBy
-    );
-
-
-    @Modifying
-    @Query("UPDATE Tournament t SET t.viewCount = t.viewCount + 1 WHERE t.id = :id")
-    void incrementViewCount(@Param("id") Long id);
-
-    @Modifying
-    @Query("UPDATE Tournament t SET t.viewCount = t.viewCount + :count WHERE t.id = :id")
-    void incrementViewCountBy(@Param("id") Long id, @Param("count") long count);
-
+  @Modifying
+  @Query("UPDATE Tournament t SET t.viewCount = t.viewCount + :count WHERE t.id = :id")
+  void incrementViewCountBy(@Param("id") Long id, @Param("count") long count);
 }

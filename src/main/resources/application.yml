@@ -29,6 +29,7 @@ server:
   port: 8080
 
 app:
+  base-url: ${APP_BASE_URL:https://www.amfutsalhub.com}
   poster:
     default-url: ${DEFAULT_POSTER_URL:/static/images/default-poster.png}
   view-count:

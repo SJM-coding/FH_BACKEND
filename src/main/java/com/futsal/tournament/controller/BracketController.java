@@ -204,4 +204,27 @@ public class BracketController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
+
+    /**
+     * 결선 1라운드 팀 수동 재배치
+     * PUT /api/tournaments/{tournamentId}/bracket/knockout/assignments
+     */
+    @PutMapping("/knockout/assignments")
+    public ResponseEntity<?> updateKnockoutAssignments(
+            @PathVariable Long tournamentId,
+            @RequestBody KnockoutMatchAssignmentRequest request,
+            @AuthenticationPrincipal User user
+    ) {
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        try {
+            BracketResponse result = bracketService.updateKnockoutAssignments(
+                    tournamentId, request, user);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 }

@@ -31,7 +31,7 @@ public class RedisTournamentViewCountService implements TournamentViewCountServi
     @Override
     public int recordViewAndGetVisibleCount(Tournament tournament) {
         String tournamentId = tournament.getId().toString();
-        String pendingKey = buildPendingKey(tournamentId);
+        String pendingKey = buildPendingKey(tournamentId); //증가분
 
         Long pendingCount = redisTemplate.opsForValue().increment(pendingKey);
         redisTemplate.opsForSet().add(DIRTY_SET_KEY, tournamentId);
