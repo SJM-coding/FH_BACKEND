@@ -19,8 +19,10 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * 대진표 조회 및 관리 서비스
+ * @deprecated BracketQueryService, BracketCommandService로 분리됨.
+ *             이 클래스는 다음 Phase에서 제거될 예정입니다.
  */
+@Deprecated
 @Slf4j
 @Service
 @RequiredArgsConstructor

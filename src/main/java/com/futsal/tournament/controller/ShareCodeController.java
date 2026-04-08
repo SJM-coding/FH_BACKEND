@@ -7,7 +7,8 @@ import com.futsal.tournament.dto.MatchResponse;
 import com.futsal.tournament.dto.MatchResultRequest;
 import com.futsal.tournament.dto.QualifierSelectionRequest;
 import com.futsal.tournament.repository.TournamentRepository;
-import com.futsal.tournament.service.BracketService;
+import com.futsal.tournament.service.BracketCommandService;
+import com.futsal.tournament.service.BracketQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -25,7 +26,8 @@ import java.util.Map;
 public class ShareCodeController {
 
     private final TournamentRepository tournamentRepository;
-    private final BracketService bracketService;
+    private final BracketQueryService bracketQueryService;
+    private final BracketCommandService bracketCommandService;
 
     /**
      * 운영진 코드로 대회 정보 조회
@@ -69,7 +71,7 @@ public class ShareCodeController {
         }
 
         try {
-            BracketResponse bracket = bracketService.getBracket(tournament.getId());
+            BracketResponse bracket = bracketQueryService.getBracket(tournament.getId());
             return ResponseEntity.ok(bracket);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -98,7 +100,7 @@ public class ShareCodeController {
         }
 
         try {
-            MatchResponse result = bracketService.recordMatchResult(tournament.getId(), matchId, request);
+            MatchResponse result = bracketCommandService.recordMatchResult(tournament.getId(), matchId, request);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -122,7 +124,7 @@ public class ShareCodeController {
         }
 
         try {
-            BracketResponse result = bracketService.selectQualifiersAndGenerateKnockoutByShareCode(
+            BracketResponse result = bracketCommandService.selectQualifiersAndGenerateKnockoutByShareCode(
                     tournament.getId(), request);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
@@ -151,7 +153,7 @@ public class ShareCodeController {
         }
 
         try {
-            var results = bracketService.updateMatchSchedules(tournament.getId(), request);
+            var results = bracketCommandService.updateMatchSchedules(tournament.getId(), request);
             return ResponseEntity.ok(results);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
