@@ -1,9 +1,8 @@
 package com.futsal.admin.controller;
 
+import com.futsal.admin.service.AdminService;
 import com.futsal.user.domain.User;
 import com.futsal.user.domain.UserRole;
-import com.futsal.user.domain.VerificationStatus;
-import com.futsal.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -22,131 +21,114 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AdminController {
 
-    private final UserRepository userRepository;
+  private final AdminService adminService;
 
-    /**
-     * 인증 대기 목록 조회
-     */
-    @GetMapping("/verifications")
-    public ResponseEntity<?> getPendingVerifications(
-            @AuthenticationPrincipal User admin
-    ) {
-        if (admin == null || admin.getRole() != UserRole.ADMIN) {
-            return ResponseEntity.status(403).body(Map.of("error", "관리자 권한이 필요합니다"));
-        }
-
-        List<User> pendingUsers = userRepository.findByVerificationStatus(VerificationStatus.PENDING);
-
-        List<Map<String, Object>> result = pendingUsers.stream()
-                .map(this::toUserResponse)
-                .collect(Collectors.toList());
-
-        return ResponseEntity.ok(result);
+  /**
+   * 인증 대기 목록 조회
+   */
+  @GetMapping("/verifications")
+  public ResponseEntity<?> getPendingVerifications(
+      @AuthenticationPrincipal User admin
+  ) {
+    if (!isAdmin(admin)) {
+      return ResponseEntity.status(403).body(Map.of("error", "관리자 권한이 필요합니다"));
     }
 
-    /**
-     * 전체 사용자 목록 조회 (인증 상태 포함)
-     */
-    @GetMapping("/users")
-    public ResponseEntity<?> getAllUsers(
-            @AuthenticationPrincipal User admin,
-            @RequestParam(required = false) String verificationStatus
-    ) {
-        if (admin == null || admin.getRole() != UserRole.ADMIN) {
-            return ResponseEntity.status(403).body(Map.of("error", "관리자 권한이 필요합니다"));
-        }
+    List<Map<String, Object>> result = adminService.getPendingVerifications()
+        .stream()
+        .map(this::toUserResponse)
+        .collect(Collectors.toList());
 
-        List<User> users;
-        if (verificationStatus != null) {
-            VerificationStatus status = VerificationStatus.valueOf(verificationStatus.toUpperCase());
-            users = userRepository.findByVerificationStatus(status);
-        } else {
-            users = userRepository.findAll();
-        }
+    return ResponseEntity.ok(result);
+  }
 
-        List<Map<String, Object>> result = users.stream()
-                .map(this::toUserResponse)
-                .collect(Collectors.toList());
-
-        return ResponseEntity.ok(result);
+  /**
+   * 전체 사용자 목록 조회 (인증 상태 필터 포함)
+   */
+  @GetMapping("/users")
+  public ResponseEntity<?> getAllUsers(
+      @AuthenticationPrincipal User admin,
+      @RequestParam(required = false) String verificationStatus
+  ) {
+    if (!isAdmin(admin)) {
+      return ResponseEntity.status(403).body(Map.of("error", "관리자 권한이 필요합니다"));
     }
 
-    /**
-     * 인증 승인
-     */
-    @PostMapping("/verifications/{userId}/approve")
-    public ResponseEntity<?> approveVerification(
-            @AuthenticationPrincipal User admin,
-            @PathVariable Long userId
-    ) {
-        if (admin == null || admin.getRole() != UserRole.ADMIN) {
-            return ResponseEntity.status(403).body(Map.of("error", "관리자 권한이 필요합니다"));
-        }
+    List<Map<String, Object>> result = adminService.getUsers(verificationStatus)
+        .stream()
+        .map(this::toUserResponse)
+        .collect(Collectors.toList());
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다"));
+    return ResponseEntity.ok(result);
+  }
 
-        try {
-            user.approveVerification();
-            userRepository.save(user);
-            return ResponseEntity.ok(toUserResponse(user));
-        } catch (IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+  /**
+   * 인증 승인
+   */
+  @PostMapping("/verifications/{userId}/approve")
+  public ResponseEntity<?> approveVerification(
+      @AuthenticationPrincipal User admin,
+      @PathVariable Long userId
+  ) {
+    if (!isAdmin(admin)) {
+      return ResponseEntity.status(403).body(Map.of("error", "관리자 권한이 필요합니다"));
     }
 
-    /**
-     * 인증 거절
-     */
-    @PostMapping("/verifications/{userId}/reject")
-    public ResponseEntity<?> rejectVerification(
-            @AuthenticationPrincipal User admin,
-            @PathVariable Long userId
-    ) {
-        if (admin == null || admin.getRole() != UserRole.ADMIN) {
-            return ResponseEntity.status(403).body(Map.of("error", "관리자 권한이 필요합니다"));
-        }
+    try {
+      User updated = adminService.approveVerification(userId);
+      return ResponseEntity.ok(toUserResponse(updated));
+    } catch (IllegalStateException e) {
+      return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+    }
+  }
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다"));
-
-        try {
-            user.rejectVerification();
-            userRepository.save(user);
-            return ResponseEntity.ok(toUserResponse(user));
-        } catch (IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+  /**
+   * 인증 거절
+   */
+  @PostMapping("/verifications/{userId}/reject")
+  public ResponseEntity<?> rejectVerification(
+      @AuthenticationPrincipal User admin,
+      @PathVariable Long userId
+  ) {
+    if (!isAdmin(admin)) {
+      return ResponseEntity.status(403).body(Map.of("error", "관리자 권한이 필요합니다"));
     }
 
-    /**
-     * 대시보드 통계
-     */
-    @GetMapping("/stats")
-    public ResponseEntity<?> getStats(
-            @AuthenticationPrincipal User admin
-    ) {
-        if (admin == null || admin.getRole() != UserRole.ADMIN) {
-            return ResponseEntity.status(403).body(Map.of("error", "관리자 권한이 필요합니다"));
-        }
+    try {
+      User updated = adminService.rejectVerification(userId);
+      return ResponseEntity.ok(toUserResponse(updated));
+    } catch (IllegalStateException e) {
+      return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+    }
+  }
 
-        Map<String, Object> stats = new HashMap<>();
-        stats.put("totalUsers", userRepository.count());
-        stats.put("pendingVerifications", userRepository.countByVerificationStatus(VerificationStatus.PENDING));
-        stats.put("verifiedUsers", userRepository.countByVerificationStatus(VerificationStatus.VERIFIED));
-
-        return ResponseEntity.ok(stats);
+  /**
+   * 대시보드 통계
+   */
+  @GetMapping("/stats")
+  public ResponseEntity<?> getStats(
+      @AuthenticationPrincipal User admin
+  ) {
+    if (!isAdmin(admin)) {
+      return ResponseEntity.status(403).body(Map.of("error", "관리자 권한이 필요합니다"));
     }
 
-    private Map<String, Object> toUserResponse(User user) {
-        Map<String, Object> response = new HashMap<>();
-        response.put("id", user.getId());
-        response.put("nickname", user.getNickname());
-        response.put("profileImageUrl", user.getProfileImageUrl());
-        response.put("role", user.getRole());
-        response.put("verificationStatus", user.getVerificationStatus());
-        response.put("verifiedAt", user.getVerifiedAt());
-        response.put("createdAt", user.getCreatedAt());
-        return response;
-    }
+    return ResponseEntity.ok(adminService.getStats());
+  }
+
+  private boolean isAdmin(User user) {
+    return user != null && user.getRole() == UserRole.ADMIN;
+  }
+
+  private Map<String, Object> toUserResponse(User user) {
+    Map<String, Object> response = new HashMap<>();
+    response.put("id", user.getId());
+    response.put("nickname", user.getNickname());
+    response.put("profileImageUrl", user.getProfileImageUrl());
+    response.put("role", user.getRole());
+    response.put("verificationStatus", user.getVerificationStatus());
+    response.put("verifiedAt", user.getVerifiedAt());
+    response.put("createdAt", user.getCreatedAt());
+    return response;
+  }
 }
