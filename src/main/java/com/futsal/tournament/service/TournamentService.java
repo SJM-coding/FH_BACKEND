@@ -149,13 +149,38 @@ public class TournamentService {
     }
 
     /**
-     * Phase 2-3: 내가 등록한 대회 목록
+     * 내가 등록한 대회 목록
      */
     @Transactional(readOnly = true)
     public List<TournamentListResponse> getMyTournaments(User user) {
-        List<TournamentListResponse> responses = tournamentRepository.findListByRegisteredBy(user);
+        List<Tournament> tournaments = tournamentRepository.findListByRegisteredBy(user);
+        List<TournamentListResponse> responses = tournaments.stream()
+            .map(this::toListResponse)
+            .collect(Collectors.toList());
         populatePosterUrls(responses);
         return responses;
+    }
+
+    /**
+     * Tournament 엔티티 → TournamentListResponse 변환
+     * posterUrl은 별도로 populatePosterUrls 에서 채워진다.
+     */
+    private TournamentListResponse toListResponse(Tournament t) {
+        com.futsal.user.domain.User owner = t.getRegisteredBy();
+        return new TournamentListResponse(
+            t.getId(),
+            t.getTitle(),
+            t.getTournamentDate(),
+            t.getLocation(),
+            t.getRecruitmentStatus(),
+            "",
+            owner != null ? owner.getNickname() : null,
+            owner != null ? owner.getProfileImageUrl() : null,
+            t.getGender(),
+            t.getPlayerType(),
+            t.getIsExternal(),
+            owner != null ? owner.getVerificationStatus() : null
+        );
     }
 
     private List<String> normalizePosterUrls(List<String> posterUrls) {
@@ -246,11 +271,13 @@ public class TournamentService {
         String status = (recruitmentStatus != null && !recruitmentStatus.isBlank())
             ? recruitmentStatus : null;
 
-        Page<TournamentListResponse> result = tournamentRepository.findPaged(
+        Page<Tournament> result = tournamentRepository.findPaged(
             gender, playerType, status, PageRequest.of(page, size)
         );
 
-        List<TournamentListResponse> content = result.getContent();
+        List<TournamentListResponse> content = result.getContent().stream()
+            .map(this::toListResponse)
+            .collect(Collectors.toList());
         populatePosterUrls(content);
 
         return new TournamentPageResponse(content, result.hasNext(), result.getTotalElements());
@@ -261,11 +288,13 @@ public class TournamentService {
      */
     @Transactional(readOnly = true)
     public TournamentPageResponse searchTournaments(String keyword, int page, int size) {
-        Page<TournamentListResponse> result = tournamentRepository.findPagedByKeyword(
+        Page<Tournament> result = tournamentRepository.findPagedByKeyword(
             keyword, PageRequest.of(page, size)
         );
 
-        List<TournamentListResponse> content = result.getContent();
+        List<TournamentListResponse> content = result.getContent().stream()
+            .map(this::toListResponse)
+            .collect(Collectors.toList());
         populatePosterUrls(content);
 
         return new TournamentPageResponse(content, result.hasNext(), result.getTotalElements());
@@ -276,7 +305,9 @@ public class TournamentService {
      */
     @Transactional(readOnly = true)
     public List<TournamentListResponse> getAllTournaments() {
-        return tournamentRepository.findListAll();
+        return tournamentRepository.findListAll().stream()
+            .map(this::toListResponse)
+            .collect(Collectors.toList());
     }
 
     /**

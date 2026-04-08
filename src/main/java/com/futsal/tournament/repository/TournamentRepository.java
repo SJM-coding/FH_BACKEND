@@ -3,7 +3,6 @@ package com.futsal.tournament.repository;
 import com.futsal.tournament.domain.Gender;
 import com.futsal.tournament.domain.PlayerType;
 import com.futsal.tournament.domain.Tournament;
-import com.futsal.tournament.dto.TournamentListResponse;
 import com.futsal.user.domain.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -19,25 +18,14 @@ import java.util.List;
 @Repository
 public interface TournamentRepository extends JpaRepository<Tournament, Long> {
 
-  // 페이지네이션 + 필터 + 서버 정렬 통합 쿼리
-  // 정렬: 진행중(오늘) > 모집중 > 예정 > 종료, 같은 상태면 날짜순
+  /**
+   * 페이지네이션 + 필터 + 서버 정렬 (진행중 > 모집중 > 예정 > 종료)
+   * registeredBy를 FETCH JOIN 해서 N+1 방지
+   */
   @Query(value = """
-      SELECT new com.futsal.tournament.dto.TournamentListResponse(
-          t.id,
-          t.title,
-          t.tournamentDate,
-          t.location,
-          t.recruitmentStatus,
-          '',
-          u.nickname,
-          u.profileImageUrl,
-          t.gender,
-          t.playerType,
-          t.isExternal,
-          u.verificationStatus
-      )
+      SELECT t
       FROM Tournament t
-      LEFT JOIN t.registeredBy u
+      LEFT JOIN FETCH t.registeredBy u
       WHERE (:gender IS NULL OR t.gender = :gender)
         AND (:playerType IS NULL OR t.playerType = :playerType)
         AND (:recruitmentStatus IS NULL OR t.recruitmentStatus = :recruitmentStatus)
@@ -57,31 +45,20 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
         AND (:playerType IS NULL OR t.playerType = :playerType)
         AND (:recruitmentStatus IS NULL OR t.recruitmentStatus = :recruitmentStatus)
       """)
-  Page<TournamentListResponse> findPaged(
+  Page<Tournament> findPaged(
       @Param("gender") Gender gender,
       @Param("playerType") PlayerType playerType,
       @Param("recruitmentStatus") String recruitmentStatus,
       Pageable pageable
   );
 
-  // 키워드 검색 페이지네이션
+  /**
+   * 키워드 검색 페이지네이션
+   */
   @Query(value = """
-      SELECT new com.futsal.tournament.dto.TournamentListResponse(
-          t.id,
-          t.title,
-          t.tournamentDate,
-          t.location,
-          t.recruitmentStatus,
-          '',
-          u.nickname,
-          u.profileImageUrl,
-          t.gender,
-          t.playerType,
-          t.isExternal,
-          u.verificationStatus
-      )
+      SELECT t
       FROM Tournament t
-      LEFT JOIN t.registeredBy u
+      LEFT JOIN FETCH t.registeredBy
       WHERE t.title LIKE CONCAT('%', :keyword, '%')
          OR t.location LIKE CONCAT('%', :keyword, '%')
       ORDER BY
@@ -99,69 +76,46 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
       WHERE t.title LIKE CONCAT('%', :keyword, '%')
          OR t.location LIKE CONCAT('%', :keyword, '%')
       """)
-  Page<TournamentListResponse> findPagedByKeyword(
+  Page<Tournament> findPagedByKeyword(
       @Param("keyword") String keyword,
       Pageable pageable
   );
 
-  // posterUrls만 조회 (id + posterUrls)
+  /**
+   * posterUrls만 조회 (id + posterUrls)
+   */
   @Query("SELECT t.id, t.posterUrls FROM Tournament t WHERE t.id IN :ids")
   List<Object[]> findPosterUrlsByIds(@Param("ids") List<Long> ids);
 
-  // 사이트맵용 전체 목록 (id, tournamentDate만 필요)
+  /**
+   * 사이트맵용 전체 목록
+   */
   @Query("""
-      SELECT new com.futsal.tournament.dto.TournamentListResponse(
-          t.id,
-          t.title,
-          t.tournamentDate,
-          t.location,
-          t.recruitmentStatus,
-          '',
-          u.nickname,
-          u.profileImageUrl,
-          t.gender,
-          t.playerType,
-          t.isExternal,
-          u.verificationStatus
-      )
+      SELECT t
       FROM Tournament t
-      LEFT JOIN t.registeredBy u
+      LEFT JOIN FETCH t.registeredBy
       ORDER BY t.tournamentDate ASC
       """)
-  List<TournamentListResponse> findListAll();
+  List<Tournament> findListAll();
 
-  // 내가 등록한 대회
+  /**
+   * 내가 등록한 대회 목록
+   */
   @Query("""
-      SELECT new com.futsal.tournament.dto.TournamentListResponse(
-          t.id,
-          t.title,
-          t.tournamentDate,
-          t.location,
-          t.recruitmentStatus,
-          '',
-          u.nickname,
-          u.profileImageUrl,
-          t.gender,
-          t.playerType,
-          t.isExternal,
-          u.verificationStatus
-      )
+      SELECT t
       FROM Tournament t
-      LEFT JOIN t.registeredBy u
+      LEFT JOIN FETCH t.registeredBy
       WHERE t.registeredBy = :registeredBy
       ORDER BY t.createdAt DESC
       """)
-  List<TournamentListResponse> findListByRegisteredBy(@Param("registeredBy") User registeredBy);
+  List<Tournament> findListByRegisteredBy(@Param("registeredBy") User registeredBy);
 
-  // 참가 코드 관련
   boolean existsByParticipantCode(String participantCode);
   java.util.Optional<Tournament> findByParticipantCode(String participantCode);
 
-  // 운영진 코드 관련
   boolean existsByStaffCode(String staffCode);
   java.util.Optional<Tournament> findByStaffCode(String staffCode);
 
-  // 중복 대회 체크
   boolean existsByTitleAndTournamentDateAndRegisteredBy(
       String title,
       LocalDate tournamentDate,
