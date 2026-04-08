@@ -1,7 +1,7 @@
 package com.futsal.tournament.application;
 
 import com.futsal.team.domain.Team;
-import com.futsal.team.repository.TeamRepository;
+import com.futsal.team.infrastructure.TeamRepository;
 import com.futsal.tournament.presentation.dto.BracketGenerateRequest;
 import com.futsal.tournament.domain.*;
 import com.futsal.tournament.infrastructure.TournamentGroupRepository;

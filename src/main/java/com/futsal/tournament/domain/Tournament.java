@@ -6,7 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import com.futsal.user.domain.User;
-import com.futsal.common.converter.StringListConverter;
+import com.futsal.tournament.infrastructure.StringListConverter;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;

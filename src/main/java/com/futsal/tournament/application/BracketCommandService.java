@@ -1,8 +1,8 @@
 package com.futsal.tournament.application;
 
-import com.futsal.common.storage.S3Service;
+import com.futsal.shared.infrastructure.S3Service;
 import com.futsal.team.domain.Team;
-import com.futsal.team.repository.TeamRepository;
+import com.futsal.team.infrastructure.TeamRepository;
 import com.futsal.tournament.domain.*;
 import com.futsal.tournament.presentation.dto.*;
 import com.futsal.tournament.infrastructure.TournamentGroupRepository;

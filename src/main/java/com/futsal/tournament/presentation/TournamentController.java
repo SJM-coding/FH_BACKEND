@@ -8,7 +8,7 @@ import com.futsal.tournament.presentation.dto.TournamentResultRequest;
 import com.futsal.tournament.presentation.dto.TournamentResultResponse;
 import com.futsal.tournament.presentation.dto.TournamentUpdateRequest;
 import com.futsal.user.domain.User;
-import com.futsal.common.storage.S3Service;
+import com.futsal.shared.infrastructure.S3Service;
 import com.futsal.tournament.application.TournamentResultService;
 import com.futsal.tournament.application.TournamentService;
 import jakarta.validation.Valid;
