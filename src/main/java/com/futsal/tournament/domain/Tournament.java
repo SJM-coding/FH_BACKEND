@@ -1,12 +1,15 @@
 package com.futsal.tournament.domain;
 
+import com.futsal.tournament.event.TournamentTitleChangedEvent;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import com.futsal.user.domain.User;
-import com.futsal.common.converter.StringListConverter;
+import com.futsal.tournament.infrastructure.StringListConverter;
+import org.springframework.data.domain.AbstractAggregateRoot;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -23,9 +26,10 @@ import java.util.List;
 )
 @Data
 @Builder
+@EqualsAndHashCode(callSuper = false)
 @NoArgsConstructor
 @AllArgsConstructor
-public class Tournament {
+public class Tournament extends AbstractAggregateRoot<Tournament> {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -228,5 +232,41 @@ public class Tournament {
      */
     public boolean isManualBracket() {
         return this.bracketType == BracketType.MANUAL;
+    }
+
+    /**
+     * 대진표 자동 생성 완료 처리
+     */
+    public void markBracketGenerated() {
+        this.bracketType = BracketType.AUTO;
+        this.bracketGenerated = true;
+    }
+
+    /**
+     * 참가 신청 가능 여부
+     * Application Service가 이 상태를 읽고 판단
+     */
+    public boolean isJoinable() {
+        return !Boolean.TRUE.equals(this.isExternal)
+            && Boolean.TRUE.equals(this.allowJoin)
+            && "OPEN".equalsIgnoreCase(this.recruitmentStatus)
+            && !Boolean.TRUE.equals(this.bracketGenerated);
+    }
+
+    /**
+     * 결선 토너먼트 경기 여부 (경기 결과 검증 시 Application Service가 사용)
+     */
+    public boolean isKnockoutMatch(TournamentMatch match) {
+        return this.tournamentType == TournamentType.SINGLE_ELIMINATION
+            || (this.tournamentType == TournamentType.GROUP_STAGE
+                && match.getGroupId() == null);
+    }
+
+    /**
+     * 대회 제목 변경 — TeamAward 역정규화 필드 동기화를 위해 이벤트 발행
+     */
+    public void changeTitle(String title) {
+        this.title = title;
+        registerEvent(new TournamentTitleChangedEvent(this.id, title));
     }
 }

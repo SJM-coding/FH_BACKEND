@@ -1,6 +1,5 @@
 package com.futsal.tournament.domain;
 
-import com.futsal.team.domain.Team;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -21,9 +20,8 @@ public class TournamentMatch {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "tournament_id", nullable = false)
-    private Tournament tournament;
+    @Column(name = "tournament_id", nullable = false)
+    private Long tournamentId;
 
     /**
      * 라운드 번호 (1라운드, 2라운드...)
@@ -47,19 +45,23 @@ public class TournamentMatch {
     @Column(length = 10)
     private String groupId;
 
-    /**
-     * 홈 팀
-     */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "team1_id")
-    private Team team1;
+    @Column(name = "team1_id")
+    private Long team1Id;
 
-    /**
-     * 어웨이 팀
-     */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "team2_id")
-    private Team team2;
+    @Column(name = "team1_name", length = 100)
+    private String team1Name;
+
+    @Column(name = "team1_logo_url", length = 500)
+    private String team1LogoUrl;
+
+    @Column(name = "team2_id")
+    private Long team2Id;
+
+    @Column(name = "team2_name", length = 100)
+    private String team2Name;
+
+    @Column(name = "team2_logo_url", length = 500)
+    private String team2LogoUrl;
 
     /**
      * 팀1 득점
@@ -85,12 +87,11 @@ public class TournamentMatch {
     @Column(name = "team2penalty_score")
     private Integer team2PenaltyScore;
 
-    /**
-     * 승자 팀
-     */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "winner_id")
-    private Team winner;
+    @Column(name = "winner_id")
+    private Long winnerId;
+
+    @Column(name = "winner_name", length = 100)
+    private String winnerName;
 
     /**
      * 경기 상태
@@ -175,31 +176,53 @@ public class TournamentMatch {
     }
 
     /**
-     * 경기 결과 입력 (승부차기 포함)
+     * 경기 결과 입력
+     * 불변식:
+     * - 양 팀이 모두 배정되어야 함
+     * - 결선(isKnockout=true) 동점 시 승부차기 필수
+     * - 승부차기 점수는 동점 불가
+     * - 조별리그(isKnockout=false)에는 승부차기 입력 불가
      */
-    public void recordResult(Integer team1Score, Integer team2Score,
-                             Integer team1PenaltyScore, Integer team2PenaltyScore) {
-        if (team1 == null || team2 == null) {
+    public void recordResult(
+        Integer team1Score, Integer team2Score,
+        Integer team1PenaltyScore, Integer team2PenaltyScore,
+        boolean isKnockout
+    ) {
+        if (team1Id == null || team2Id == null) {
             throw new IllegalStateException("양 팀이 모두 배정되어야 결과를 입력할 수 있습니다.");
+        }
+
+        boolean isDraw = team1Score != null && team2Score != null
+            && team1Score.equals(team2Score);
+
+        if (isKnockout && isDraw) {
+            if (team1PenaltyScore == null || team2PenaltyScore == null) {
+                throw new IllegalStateException(
+                    "결선 토너먼트 동점 경기는 승부차기 점수를 입력해야 합니다.");
+            }
+            if (team1PenaltyScore.equals(team2PenaltyScore)) {
+                throw new IllegalStateException("승부차기 점수는 동점일 수 없습니다.");
+            }
+        }
+
+        if (!isKnockout && (team1PenaltyScore != null || team2PenaltyScore != null)) {
+            throw new IllegalStateException("조별리그 경기에는 승부차기 점수를 입력할 수 없습니다.");
         }
 
         this.team1Score = team1Score;
         this.team2Score = team2Score;
         this.team1PenaltyScore = team1PenaltyScore;
         this.team2PenaltyScore = team2PenaltyScore;
-
-        // 승자 결정
         determineWinner();
-
         this.status = MatchStatus.FINISHED;
         this.finishedAt = LocalDateTime.now();
     }
 
     /**
-     * 경기 결과 입력 (승부차기 없이)
+     * 경기 결과 입력 (승부차기 없이, 조별리그용)
      */
     public void recordResult(Integer team1Score, Integer team2Score) {
-        recordResult(team1Score, team2Score, null, null);
+        recordResult(team1Score, team2Score, null, null, false);
     }
 
     /**
@@ -207,20 +230,21 @@ public class TournamentMatch {
      */
     private void determineWinner() {
         if (team1Score > team2Score) {
-            this.winner = team1;
+            this.winnerId = team1Id;
+            this.winnerName = team1Name;
         } else if (team2Score > team1Score) {
-            this.winner = team2;
+            this.winnerId = team2Id;
+            this.winnerName = team2Name;
         } else {
-            // 동점인 경우 승부차기로 결정
             if (team1PenaltyScore != null && team2PenaltyScore != null) {
                 if (team1PenaltyScore > team2PenaltyScore) {
-                    this.winner = team1;
+                    this.winnerId = team1Id;
+                    this.winnerName = team1Name;
                 } else if (team2PenaltyScore > team1PenaltyScore) {
-                    this.winner = team2;
+                    this.winnerId = team2Id;
+                    this.winnerName = team2Name;
                 }
-                // 승부차기도 동점이면 winner = null
             }
-            // 승부차기 없으면 무승부 (winner = null)
         }
     }
 
@@ -248,12 +272,52 @@ public class TournamentMatch {
     /**
      * 팀 배정
      */
-    public void assignTeam1(Team team) {
-        this.team1 = team;
+    public void assignTeam1(Long id, String name, String logoUrl) {
+        this.team1Id = id;
+        this.team1Name = name;
+        this.team1LogoUrl = logoUrl;
     }
 
-    public void assignTeam2(Team team) {
-        this.team2 = team;
+    public void assignTeam2(Long id, String name, String logoUrl) {
+        this.team2Id = id;
+        this.team2Name = name;
+        this.team2LogoUrl = logoUrl;
+    }
+
+    /**
+     * 승자를 다음 경기에 배정
+     */
+    public void advanceWinnerAsTeam1(TournamentMatch next) {
+        if (winnerId == null) return;
+        String name = winnerId.equals(team1Id) ? team1Name : team2Name;
+        String logo = winnerId.equals(team1Id) ? team1LogoUrl : team2LogoUrl;
+        next.assignTeam1(winnerId, name, logo);
+    }
+
+    public void advanceWinnerAsTeam2(TournamentMatch next) {
+        if (winnerId == null) return;
+        String name = winnerId.equals(team1Id) ? team1Name : team2Name;
+        String logo = winnerId.equals(team1Id) ? team1LogoUrl : team2LogoUrl;
+        next.assignTeam2(winnerId, name, logo);
+    }
+
+    /**
+     * 패자를 다음 경기에 배정 (3·4위전용)
+     */
+    public void advanceLoserAsTeam1(TournamentMatch next) {
+        Long loserId = getLoserId();
+        if (loserId == null) return;
+        String name = loserId.equals(team1Id) ? team1Name : team2Name;
+        String logo = loserId.equals(team1Id) ? team1LogoUrl : team2LogoUrl;
+        next.assignTeam1(loserId, name, logo);
+    }
+
+    public void advanceLoserAsTeam2(TournamentMatch next) {
+        Long loserId = getLoserId();
+        if (loserId == null) return;
+        String name = loserId.equals(team1Id) ? team1Name : team2Name;
+        String logo = loserId.equals(team1Id) ? team1LogoUrl : team2LogoUrl;
+        next.assignTeam2(loserId, name, logo);
     }
 
     /**
@@ -275,16 +339,32 @@ public class TournamentMatch {
      * 무승부인지
      */
     public boolean isDraw() {
-        return isFinished() && winner == null;
+        return isFinished() && winnerId == null;
     }
 
     /**
-     * 패자 팀 반환
+     * 패자 팀 ID 반환
      */
-    public Team getLoser() {
-        if (!isFinished() || winner == null || team1 == null || team2 == null) {
+    public Long getLoserId() {
+        if (!isFinished() || winnerId == null || team1Id == null || team2Id == null) {
             return null;
         }
-        return winner.getId().equals(team1.getId()) ? team2 : team1;
+        return winnerId.equals(team1Id) ? team2Id : team1Id;
+    }
+
+    /**
+     * 패자 팀 이름 반환
+     */
+    public String getLoserName() {
+        if (!isFinished() || winnerId == null) return null;
+        return winnerId.equals(team1Id) ? team2Name : team1Name;
+    }
+
+    /**
+     * 패자 팀 로고 반환
+     */
+    public String getLoserLogoUrl() {
+        if (!isFinished() || winnerId == null) return null;
+        return winnerId.equals(team1Id) ? team2LogoUrl : team1LogoUrl;
     }
 }

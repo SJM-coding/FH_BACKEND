@@ -12,7 +12,12 @@ import java.util.Random;
  * 대회 참가팀 (공유코드로 등록)
  */
 @Entity
-@Table(name = "tournament_participants")
+@Table(name = "tournament_participants",
+    uniqueConstraints = @UniqueConstraint(
+        name = "uk_participant_tournament_team",
+        columnNames = {"tournament_id", "team_id"}
+    )
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
@@ -23,9 +28,8 @@ public class TournamentParticipant {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "tournament_id", nullable = false)
-    private Tournament tournament;
+    @Column(name = "tournament_id", nullable = false)
+    private Long tournamentId;
 
     @Column(name = "team_id", nullable = false)
     private Long teamId;

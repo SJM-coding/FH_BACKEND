@@ -1,10 +1,12 @@
 package com.futsal.team.domain;
 
+import com.futsal.team.event.TeamProfileChangedEvent;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.data.domain.AbstractAggregateRoot;
 
 import java.time.LocalDateTime;
 
@@ -14,7 +16,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Team {
+public class Team extends AbstractAggregateRoot<Team> {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -60,14 +62,22 @@ public class Team {
      * 팀 정보 업데이트
      */
     public void updateTeam(String name, String region, String logoUrl) {
+        boolean profileChanged = false;
+
         if (name != null && !name.isBlank()) {
             this.name = name;
+            profileChanged = true;
         }
         if (region != null && !region.isBlank()) {
             this.region = region;
         }
         if (logoUrl != null) {
             this.logoUrl = logoUrl;
+            profileChanged = true;
+        }
+
+        if (profileChanged) {
+            registerEvent(new TeamProfileChangedEvent(this.id, this.name, this.logoUrl));
         }
     }
 }

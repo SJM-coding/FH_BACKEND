@@ -1,8 +1,8 @@
 package com.futsal.config;
 
-import com.futsal.auth.filter.JwtAuthenticationFilter;
-import com.futsal.auth.handler.OAuth2SuccessHandler;
-import com.futsal.auth.service.CustomOAuth2UserService;
+import com.futsal.auth.infrastructure.JwtAuthenticationFilter;
+import com.futsal.auth.infrastructure.OAuth2SuccessHandler;
+import com.futsal.auth.application.CustomOAuth2UserService;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
