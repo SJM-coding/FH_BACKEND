@@ -274,8 +274,7 @@ public class BracketCommandService {
         throw new RuntimeException("조 " + groupName + "의 진출팀을 선택해주세요.");
       }
 
-      Set<Long> groupTeamIds = group.getTeams().stream()
-          .map(Team::getId).collect(Collectors.toSet());
+      Set<Long> groupTeamIds = new HashSet<>(group.getTeamIds());
 
       for (Long teamId : selectedIds) {
         if (!groupTeamIds.contains(teamId)) {
@@ -534,10 +533,7 @@ public class BracketCommandService {
       int advanceCount = Math.min(tournament.getAdvanceCount(), standings.size());
       for (int i = 0; i < advanceCount; i++) {
         Long teamId = standings.get(i).getTeamId();
-        group.getTeams().stream()
-            .filter(t -> t.getId().equals(teamId))
-            .findFirst()
-            .ifPresent(qualifiedTeams::add);
+        teamRepository.findById(teamId).ifPresent(qualifiedTeams::add);
       }
     }
 

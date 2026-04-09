@@ -1,5 +1,7 @@
 package com.futsal.tournament.application;
 
+import com.futsal.team.domain.Team;
+import com.futsal.team.infrastructure.TeamRepository;
 import com.futsal.tournament.domain.*;
 import com.futsal.tournament.presentation.dto.BracketResponse;
 import com.futsal.tournament.presentation.dto.MatchResponse;
@@ -26,6 +28,7 @@ public class BracketQueryService {
   private final TournamentRepository tournamentRepository;
   private final TournamentMatchRepository matchRepository;
   private final TournamentGroupRepository groupRepository;
+  private final TeamRepository teamRepository;
 
   /**
    * 대진표 전체 조회
@@ -252,14 +255,18 @@ public class BracketQueryService {
 
     Map<Long, BracketResponse.TeamStanding> standingsMap = new HashMap<>();
 
-    group.getTeams().forEach(team ->
-        standingsMap.put(team.getId(), BracketResponse.TeamStanding.builder()
-            .teamId(team.getId())
-            .teamName(team.getName())
-            .teamLogoUrl(team.getLogoUrl())
-            .played(0).won(0).drawn(0).lost(0)
-            .goalsFor(0).goalsAgainst(0).goalDifference(0).points(0)
-            .build()));
+    Map<Long, Team> teamMap = teamRepository.findAllById(group.getTeamIds())
+        .stream().collect(Collectors.toMap(Team::getId, t -> t));
+    group.getTeamIds().forEach(teamId -> {
+      Team team = teamMap.get(teamId);
+      standingsMap.put(teamId, BracketResponse.TeamStanding.builder()
+          .teamId(teamId)
+          .teamName(team != null ? team.getName() : "알 수 없음")
+          .teamLogoUrl(team != null ? team.getLogoUrl() : null)
+          .played(0).won(0).drawn(0).lost(0)
+          .goalsFor(0).goalsAgainst(0).goalDifference(0).points(0)
+          .build());
+    });
 
     matches.stream()
         .filter(TournamentMatch::isFinished)

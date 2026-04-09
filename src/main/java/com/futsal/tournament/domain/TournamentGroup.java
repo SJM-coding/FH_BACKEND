@@ -1,6 +1,5 @@
 package com.futsal.tournament.domain;
 
-import com.futsal.team.domain.Team;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -38,39 +37,30 @@ public class TournamentGroup {
     private Integer groupOrder;
 
     /**
-     * 조에 속한 팀들
+     * 조에 속한 팀 ID 목록
      */
-    @ManyToMany
-    @JoinTable(
+    @ElementCollection
+    @CollectionTable(
         name = "tournament_group_teams",
-        joinColumns = @JoinColumn(name = "group_id"),
-        inverseJoinColumns = @JoinColumn(name = "team_id")
+        joinColumns = @JoinColumn(name = "group_id")
     )
+    @Column(name = "team_id")
     @Builder.Default
-    private List<Team> teams = new ArrayList<>();
+    private List<Long> teamIds = new ArrayList<>();
 
     // ===== 비즈니스 로직 =====
 
-    /**
-     * 팀 추가
-     */
-    public void addTeam(Team team) {
-        if (!teams.contains(team)) {
-            teams.add(team);
+    public void addTeamId(Long teamId) {
+        if (!teamIds.contains(teamId)) {
+            teamIds.add(teamId);
         }
     }
 
-    /**
-     * 팀 제거
-     */
-    public void removeTeam(Team team) {
-        teams.remove(team);
+    public void removeTeamId(Long teamId) {
+        teamIds.remove(teamId);
     }
 
-    /**
-     * 조가 가득 찼는지 확인
-     */
     public boolean isFull(int maxTeamsPerGroup) {
-        return teams.size() >= maxTeamsPerGroup;
+        return teamIds.size() >= maxTeamsPerGroup;
     }
 }

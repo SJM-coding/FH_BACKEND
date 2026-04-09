@@ -224,7 +224,6 @@ public class BracketGeneratorService {
                     .tournamentId(tournament.getId())
                     .groupName(generateGroupName(i))
                     .groupOrder(i + 1)
-                    .teams(new ArrayList<>())
                     .build();
 
             List<Team> groupTeams = new ArrayList<>();
@@ -232,7 +231,7 @@ public class BracketGeneratorService {
                 Long teamId = orderedTeams.get(i * teamsPerGroup + j);
                 if (teamMap.containsKey(teamId)) {
                     Team team = teamMap.get(teamId);
-                    group.getTeams().add(team);
+                    group.addTeamId(team.getId());
                     groupTeams.add(team);
                 }
             }
