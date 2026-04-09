@@ -200,7 +200,7 @@ public class BracketQueryService {
         .collect(Collectors.toList());
 
     boolean knockoutTeamsAssigned = knockoutMatches.stream()
-        .anyMatch(m -> m.getTeam1() != null || m.getTeam2() != null);
+        .anyMatch(m -> m.getTeam1Id() != null || m.getTeam2Id() != null);
 
     return builder
         .groups(groupInfos)
@@ -264,11 +264,11 @@ public class BracketQueryService {
     matches.stream()
         .filter(TournamentMatch::isFinished)
         .forEach(match -> {
-          if (match.getTeam1() == null || match.getTeam2() == null) return;
+          if (match.getTeam1Id() == null || match.getTeam2Id() == null) return;
           if (match.getTeam1Score() == null || match.getTeam2Score() == null) return;
 
-          Long t1 = match.getTeam1().getId();
-          Long t2 = match.getTeam2().getId();
+          Long t1 = match.getTeam1Id();
+          Long t2 = match.getTeam2Id();
           BracketResponse.TeamStanding s1 = standingsMap.get(t1);
           BracketResponse.TeamStanding s2 = standingsMap.get(t2);
           if (s1 == null || s2 == null) return;
@@ -280,12 +280,12 @@ public class BracketQueryService {
           s2.setGoalsFor(s2.getGoalsFor() + match.getTeam2Score());
           s2.setGoalsAgainst(s2.getGoalsAgainst() + match.getTeam1Score());
 
-          if (match.getWinner() == null) {
+          if (match.getWinnerId() == null) {
             s1.setDrawn(s1.getDrawn() + 1);
             s2.setDrawn(s2.getDrawn() + 1);
             s1.setPoints(s1.getPoints() + 1);
             s2.setPoints(s2.getPoints() + 1);
-          } else if (match.getWinner().getId().equals(t1)) {
+          } else if (match.getWinnerId().equals(t1)) {
             s1.setWon(s1.getWon() + 1);
             s2.setLost(s2.getLost() + 1);
             s1.setPoints(s1.getPoints() + 3);

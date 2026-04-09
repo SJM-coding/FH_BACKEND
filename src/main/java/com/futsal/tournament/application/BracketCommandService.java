@@ -244,7 +244,7 @@ public class BracketCommandService {
         .collect(Collectors.toList());
 
     boolean knockoutAssigned = knockoutMatches.stream()
-        .anyMatch(m -> m.getTeam1() != null || m.getTeam2() != null);
+        .anyMatch(m -> m.getTeam1Id() != null || m.getTeam2Id() != null);
     if (knockoutAssigned) {
       throw new RuntimeException("이미 결선 토너먼트 팀이 배정되었습니다.");
     }
@@ -346,7 +346,7 @@ public class BracketCommandService {
       throw new RuntimeException("결선 1라운드 경기를 찾을 수 없습니다.");
     }
     if (firstRoundMatches.stream()
-        .anyMatch(m -> m.getTeam1() == null || m.getTeam2() == null)) {
+        .anyMatch(m -> m.getTeam1Id() == null || m.getTeam2Id() == null)) {
       throw new RuntimeException("아직 팀 배정이 완료되지 않은 결선 경기입니다.");
     }
     if (request == null || request.getAssignments() == null
@@ -363,8 +363,8 @@ public class BracketCommandService {
     }
 
     Set<Long> currentTeamIds = firstRoundMatches.stream()
-        .flatMap(m -> java.util.stream.Stream.of(m.getTeam1(), m.getTeam2()))
-        .map(Team::getId)
+        .flatMap(m -> java.util.stream.Stream.of(m.getTeam1Id(), m.getTeam2Id()))
+        .filter(java.util.Objects::nonNull)
         .collect(Collectors.toSet());
 
     Set<Long> requestedMatchIds = new HashSet<>();
@@ -413,8 +413,8 @@ public class BracketCommandService {
       if (team1 == null || team2 == null) {
         throw new RuntimeException("결선 진출팀 정보를 찾을 수 없습니다.");
       }
-      match.assignTeam1(team1);
-      match.assignTeam2(team2);
+      match.assignTeam1(team1.getId(), team1.getName(), team1.getLogoUrl());
+      match.assignTeam2(team2.getId(), team2.getName(), team2.getLogoUrl());
       matchRepository.save(match);
     }
 
@@ -424,7 +424,7 @@ public class BracketCommandService {
   // ── 내부 도우미 ────────────────────────────────────────────────────
 
   private void advanceWinnerToNextRound(TournamentMatch match) {
-    if (match.getWinner() == null) {
+    if (match.getWinnerId() == null) {
       log.warn("무승부 경기는 진출 처리할 수 없습니다: matchId={}", match.getId());
       return;
     }
@@ -440,21 +440,20 @@ public class BracketCommandService {
         .findFirst()
         .ifPresent(next -> {
           if (match.getMatchNumber() % 2 == 1) {
-            next.assignTeam1(match.getWinner());
+            match.advanceWinnerAsTeam1(next);
           } else {
-            next.assignTeam2(match.getWinner());
+            match.advanceWinnerAsTeam2(next);
           }
           matchRepository.save(next);
           log.info("승자 진출 처리: {}팀 -> {}라운드 {}경기",
-              match.getWinner().getName(), nextRound, nextMatchNumber);
+              match.getWinnerName(), nextRound, nextMatchNumber);
         });
 
     assignLoserToThirdPlaceMatch(match, nextRound);
   }
 
   private void assignLoserToThirdPlaceMatch(TournamentMatch match, int nextRound) {
-    Team loser = match.getLoser();
-    if (loser == null) return;
+    if (match.getLoserId() == null) return;
 
     List<TournamentMatch> currentRoundMatches =
         matchRepository.findByTournamentIdAndRound(
@@ -471,13 +470,13 @@ public class BracketCommandService {
         .findFirst()
         .ifPresent(third -> {
           if (match.getMatchNumber() % 2 == 1) {
-            third.assignTeam1(loser);
+            match.advanceLoserAsTeam1(third);
           } else {
-            third.assignTeam2(loser);
+            match.advanceLoserAsTeam2(third);
           }
           matchRepository.save(third);
           log.info("패자 3,4위전 배치: {}팀 -> {}라운드 2경기",
-              loser.getName(), nextRound);
+              match.getLoserName(), nextRound);
         });
   }
 
@@ -493,7 +492,7 @@ public class BracketCommandService {
         .collect(Collectors.toList());
 
     boolean knockoutAssigned = knockoutMatches.stream()
-        .anyMatch(m -> m.getTeam1() != null || m.getTeam2() != null);
+        .anyMatch(m -> m.getTeam1Id() != null || m.getTeam2Id() != null);
     if (knockoutAssigned) return;
 
     List<TournamentMatch> groupMatches = allMatches.stream()
@@ -585,8 +584,14 @@ public class BracketCommandService {
       TournamentMatch match = firstRoundMatches.get(i);
       int t1Idx = i;
       int t2Idx = bracketSize - 1 - i;
-      if (t1Idx < seededTeams.size()) match.assignTeam1(seededTeams.get(t1Idx));
-      if (t2Idx < seededTeams.size()) match.assignTeam2(seededTeams.get(t2Idx));
+      if (t1Idx < seededTeams.size()) {
+        Team t = seededTeams.get(t1Idx);
+        match.assignTeam1(t.getId(), t.getName(), t.getLogoUrl());
+      }
+      if (t2Idx < seededTeams.size()) {
+        Team t = seededTeams.get(t2Idx);
+        match.assignTeam2(t.getId(), t.getName(), t.getLogoUrl());
+      }
       matchRepository.save(match);
     }
 

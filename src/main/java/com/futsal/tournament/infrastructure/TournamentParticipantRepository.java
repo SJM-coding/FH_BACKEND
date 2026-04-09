@@ -2,6 +2,7 @@ package com.futsal.tournament.infrastructure;
 
 import com.futsal.tournament.domain.TournamentParticipant;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -72,4 +73,17 @@ public interface TournamentParticipantRepository extends JpaRepository<Tournamen
            "AND p.status = 'CONFIRMED' " +
            "ORDER BY p.createdAt DESC")
     List<TournamentParticipant> findConfirmedByTeamId(@Param("teamId") Long teamId);
+
+    /**
+     * 팀 프로필 변경 시 역정규화 필드 일괄 동기화
+     */
+    @Modifying
+    @Query("UPDATE TournamentParticipant p " +
+           "SET p.teamName = :name, p.teamLogoUrl = :logoUrl " +
+           "WHERE p.teamId = :teamId")
+    void updateTeamProfile(
+        @Param("teamId") Long teamId,
+        @Param("name") String name,
+        @Param("logoUrl") String logoUrl
+    );
 }

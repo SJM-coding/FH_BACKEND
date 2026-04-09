@@ -127,7 +127,7 @@ public class TournamentService {
         }
 
         // 수정
-        if (request.getTitle() != null) tournament.setTitle(request.getTitle());
+        if (request.getTitle() != null) tournament.changeTitle(request.getTitle());
         if (request.getTournamentDate() != null) tournament.setTournamentDate(request.getTournamentDate());
         if (request.getLocation() != null) tournament.setLocation(request.getLocation());
         if (request.getGender() != null) tournament.setGender(request.getGender());

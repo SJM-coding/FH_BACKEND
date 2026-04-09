@@ -164,8 +164,14 @@ public class BracketGeneratorService {
 
             Long team1Id = orderedTeams.get(i);
             Long team2Id = orderedTeams.get(i + 1);
-            if (team1Id != null && teamMap.containsKey(team1Id)) match.assignTeam1(teamMap.get(team1Id));
-            if (team2Id != null && teamMap.containsKey(team2Id)) match.assignTeam2(teamMap.get(team2Id));
+            if (team1Id != null && teamMap.containsKey(team1Id)) {
+                Team t = teamMap.get(team1Id);
+                match.assignTeam1(t.getId(), t.getName(), t.getLogoUrl());
+            }
+            if (team2Id != null && teamMap.containsKey(team2Id)) {
+                Team t = teamMap.get(team2Id);
+                match.assignTeam2(t.getId(), t.getName(), t.getLogoUrl());
+            }
 
             newMatches.add(match);
         }
@@ -242,8 +248,10 @@ public class BracketGeneratorService {
                             .groupId(group.getGroupName())
                             .status(TournamentMatch.MatchStatus.SCHEDULED)
                             .build();
-                    match.assignTeam1(groupTeams.get(a));
-                    match.assignTeam2(groupTeams.get(b));
+                    Team ta = groupTeams.get(a);
+                    Team tb = groupTeams.get(b);
+                    match.assignTeam1(ta.getId(), ta.getName(), ta.getLogoUrl());
+                    match.assignTeam2(tb.getId(), tb.getName(), tb.getLogoUrl());
                     newMatches.add(match);
                 }
             }
@@ -328,8 +336,14 @@ public class BracketGeneratorService {
 
             Long team1Id = orderedTeams.get(i);
             Long team2Id = orderedTeams.get(i + 1);
-            if (teamMap.containsKey(team1Id)) match.assignTeam1(teamMap.get(team1Id));
-            if (teamMap.containsKey(team2Id)) match.assignTeam2(teamMap.get(team2Id));
+            if (teamMap.containsKey(team1Id)) {
+                Team t = teamMap.get(team1Id);
+                match.assignTeam1(t.getId(), t.getName(), t.getLogoUrl());
+            }
+            if (teamMap.containsKey(team2Id)) {
+                Team t = teamMap.get(team2Id);
+                match.assignTeam2(t.getId(), t.getName(), t.getLogoUrl());
+            }
 
             newMatches.add(match);
         }

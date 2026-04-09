@@ -1,12 +1,15 @@
 package com.futsal.tournament.domain;
 
+import com.futsal.tournament.event.TournamentTitleChangedEvent;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import com.futsal.user.domain.User;
 import com.futsal.tournament.infrastructure.StringListConverter;
+import org.springframework.data.domain.AbstractAggregateRoot;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -23,9 +26,10 @@ import java.util.List;
 )
 @Data
 @Builder
+@EqualsAndHashCode(callSuper = false)
 @NoArgsConstructor
 @AllArgsConstructor
-public class Tournament {
+public class Tournament extends AbstractAggregateRoot<Tournament> {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -256,5 +260,13 @@ public class Tournament {
         return this.tournamentType == TournamentType.SINGLE_ELIMINATION
             || (this.tournamentType == TournamentType.GROUP_STAGE
                 && match.getGroupId() == null);
+    }
+
+    /**
+     * 대회 제목 변경 — TeamAward 역정규화 필드 동기화를 위해 이벤트 발행
+     */
+    public void changeTitle(String title) {
+        this.title = title;
+        registerEvent(new TournamentTitleChangedEvent(this.id, title));
     }
 }

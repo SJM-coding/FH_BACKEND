@@ -71,25 +71,14 @@ public class MatchResponse {
                 .startedAt(match.getStartedAt())
                 .finishedAt(match.getFinishedAt());
 
-        // Team 1
-        if (match.getTeam1() != null) {
-            builder.team1Id(match.getTeam1().getId())
-                   .team1Name(match.getTeam1().getName())
-                   .team1LogoUrl(match.getTeam1().getLogoUrl());
-        }
-
-        // Team 2
-        if (match.getTeam2() != null) {
-            builder.team2Id(match.getTeam2().getId())
-                   .team2Name(match.getTeam2().getName())
-                   .team2LogoUrl(match.getTeam2().getLogoUrl());
-        }
-
-        // Winner
-        if (match.getWinner() != null) {
-            builder.winnerId(match.getWinner().getId())
-                   .winnerName(match.getWinner().getName());
-        }
+        builder.team1Id(match.getTeam1Id())
+               .team1Name(match.getTeam1Name())
+               .team1LogoUrl(match.getTeam1LogoUrl())
+               .team2Id(match.getTeam2Id())
+               .team2Name(match.getTeam2Name())
+               .team2LogoUrl(match.getTeam2LogoUrl())
+               .winnerId(match.getWinnerId())
+               .winnerName(match.getWinnerName());
 
         return builder.build();
     }
