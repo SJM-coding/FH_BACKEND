@@ -7,10 +7,13 @@ import com.futsal.user.domain.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+
+import jakarta.persistence.LockModeType;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -112,6 +115,14 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
 
   boolean existsByParticipantCode(String participantCode);
   java.util.Optional<Tournament> findByParticipantCode(String participantCode);
+
+  /**
+   * 참가 신청 시 maxTeams 초과 방지용 비관적 락
+   * 같은 대회에 대한 동시 참가 요청을 직렬화한다.
+   */
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("SELECT t FROM Tournament t WHERE t.id = :id")
+  java.util.Optional<Tournament> findByIdForUpdate(@Param("id") Long id);
 
   boolean existsByStaffCode(String staffCode);
   java.util.Optional<Tournament> findByStaffCode(String staffCode);

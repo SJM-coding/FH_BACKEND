@@ -77,23 +77,30 @@ public class ParticipantService {
 
     /**
      * 대회 참가 신청 (참가 코드 사용)
+     * 비관적 락으로 maxTeams 초과를 막고, Unique Constraint로 중복 참가를 물리적으로 차단한다.
      */
     @Transactional
     public TournamentParticipant joinTournament(String participantCode, Long teamId, Long userId) {
-        // 참가 코드로 대회 조회
-        Tournament tournament = findByParticipantCode(participantCode);
+        // 참가 코드로 대회 ID 조회 후 비관적 락 획득 (동시 요청 직렬화)
+        Long tournamentId = tournamentRepository.findByParticipantCode(participantCode)
+                .orElseThrow(() -> new RuntimeException("유효하지 않은 참가코드입니다: " + participantCode))
+                .getId();
+        Tournament tournament = tournamentRepository.findByIdForUpdate(tournamentId)
+                .orElseThrow(() -> new RuntimeException("대회를 찾을 수 없습니다."));
 
         // Tournament 상태 기반 불변식 검증
         if (!tournament.isJoinable()) {
             throw new IllegalStateException("현재 대회 참가가 불가능합니다.");
         }
 
-        // maxTeams, 중복 참가 검증 (DB 쿼리로 효율적으로 처리)
+        // maxTeams 초과 검증 (락 안에서 카운트 → 안전)
         long currentCount = participantRepository.countByTournamentIdAndStatus(
             tournament.getId(), TournamentParticipant.ParticipantStatus.CONFIRMED);
         if (currentCount >= tournament.getMaxTeams()) {
             throw new IllegalStateException("참가 팀이 마감되었습니다.");
         }
+
+        // 중복 참가 검증 (Unique Constraint가 최후 보루이지만 명시적으로도 체크)
         participantRepository.findByTournamentIdAndTeamId(tournament.getId(), teamId)
             .ifPresent(p -> { throw new IllegalStateException("이미 참가 중인 팀입니다."); });
 
