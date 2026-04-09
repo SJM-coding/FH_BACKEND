@@ -4,6 +4,7 @@ import com.futsal.team.domain.Team;
 import com.futsal.team.infrastructure.TeamRepository;
 import com.futsal.tournament.presentation.dto.BracketGenerateRequest;
 import com.futsal.tournament.domain.*;
+import com.futsal.tournament.infrastructure.BracketRepository;
 import com.futsal.tournament.infrastructure.TournamentGroupRepository;
 import com.futsal.tournament.infrastructure.TournamentMatchRepository;
 import com.futsal.tournament.infrastructure.TournamentRepository;
@@ -26,6 +27,7 @@ public class BracketGeneratorService {
     private final TournamentMatchRepository matchRepository;
     private final TournamentGroupRepository groupRepository;
     private final TeamRepository teamRepository;
+    private final BracketRepository bracketRepository;
 
     /**
      * 대진표 생성 (참가 팀 기반)
@@ -65,26 +67,30 @@ public class BracketGeneratorService {
 
         applyGenerationSettings(tournament, request, participatingTeamIds.size());
 
-        // 대진표 생성 타입별 분기
+        // 대진표 생성 타입별 분기 (메모리에서 구성 후 Tournament을 통해 저장)
         switch (tournament.getTournamentType()) {
             case SINGLE_ELIMINATION:
-                generateSingleEliminationBracket(tournament, participatingTeamIds);
+                buildSingleEliminationBracket(tournament, participatingTeamIds);
                 break;
             case GROUP_STAGE:
-                generateGroupStageBracket(tournament, participatingTeamIds);
+                buildGroupStageBracket(tournament, participatingTeamIds);
                 break;
             case SWISS_SYSTEM:
-                generateSwissSystemBracket(tournament, participatingTeamIds);
+                buildSwissSystemBracket(tournament, participatingTeamIds);
                 break;
             case EXTERNAL:
-                // 위에서 이미 체크했으므로 여기 도달하지 않음
                 throw new RuntimeException("외부 대회는 자동 대진표 생성이 불가능합니다.");
         }
 
-        // AUTO 모드로 설정
-        tournament.setBracketType(BracketType.AUTO);
-        tournament.setBracketGenerated(true);
+        // Tournament 자신의 상태 변경
+        tournament.markBracketGenerated();
         tournamentRepository.save(tournament);
+
+        // Bracket Aggregate 업데이트 (dual write)
+        Bracket bracket = bracketRepository.findByTournamentId(tournamentId)
+            .orElseGet(() -> Bracket.createDefault(tournamentId));
+        bracket.markGenerated();
+        bracketRepository.save(bracket);
 
         log.info("대진표 생성 완료: 대회 ID={}, 타입={}, 팀 수={}",
             tournamentId, tournament.getTournamentType(), participatingTeamIds.size());
@@ -131,36 +137,24 @@ public class BracketGeneratorService {
 
     /**
      * 싱글 엘리미네이션 대진표 생성
+     * 경기 객체를 메모리에서 구성 후 Tournament을 통해 일괄 저장
      */
-    private void generateSingleEliminationBracket(Tournament tournament, List<Long> teamIds) {
+    private void buildSingleEliminationBracket(Tournament tournament, List<Long> teamIds) {
         int teamCount = teamIds.size();
-
-        // 2의 거듭제곱으로 올림 (부전승 처리)
         int bracketSize = nextPowerOfTwo(teamCount);
         int byeCount = bracketSize - teamCount;
 
         log.info("토너먼트 대진표 생성: 총 {}팀, 브라켓 크기={}, 부전승={}", teamCount, bracketSize, byeCount);
 
-        // 팀 조회
-        Map<Long, Team> teamMap = new HashMap<>();
-        for (Long teamId : teamIds) {
-            teamRepository.findById(teamId).ifPresent(team -> teamMap.put(teamId, team));
-        }
-
-        // 프론트엔드에서 전달받은 순서를 그대로 사용 (사용자가 직접 정렬함)
+        Map<Long, Team> teamMap = loadTeams(teamIds);
         List<Long> orderedTeams = new ArrayList<>(teamIds);
+        for (int i = 0; i < byeCount; i++) orderedTeams.add(null);
 
-        // 부전승 팀 추가 (null로 표시)
-        for (int i = 0; i < byeCount; i++) {
-            orderedTeams.add(null);
-        }
+        List<TournamentMatch> newMatches = new ArrayList<>();
 
         // 1라운드 매치 생성
         int matchNumber = 1;
         for (int i = 0; i < bracketSize; i += 2) {
-            Long team1Id = orderedTeams.get(i);
-            Long team2Id = orderedTeams.get(i + 1);
-
             TournamentMatch match = TournamentMatch.builder()
                     .tournament(tournament)
                     .round(1)
@@ -168,39 +162,37 @@ public class BracketGeneratorService {
                     .status(TournamentMatch.MatchStatus.SCHEDULED)
                     .build();
 
-            // 팀 배정
-            if (team1Id != null && teamMap.containsKey(team1Id)) {
-                match.assignTeam1(teamMap.get(team1Id));
-            }
-            if (team2Id != null && teamMap.containsKey(team2Id)) {
-                match.assignTeam2(teamMap.get(team2Id));
-            }
+            Long team1Id = orderedTeams.get(i);
+            Long team2Id = orderedTeams.get(i + 1);
+            if (team1Id != null && teamMap.containsKey(team1Id)) match.assignTeam1(teamMap.get(team1Id));
+            if (team2Id != null && teamMap.containsKey(team2Id)) match.assignTeam2(teamMap.get(team2Id));
 
-            matchRepository.save(match);
+            newMatches.add(match);
         }
 
-        // 이후 라운드 빈 매치 생성 (승자가 올라갈 자리)
+        // 이후 라운드 빈 매치 생성
         int totalRounds = (int) (Math.log(bracketSize) / Math.log(2));
         int currentMatchCount = bracketSize / 2;
-
         for (int round = 2; round <= totalRounds; round++) {
             currentMatchCount /= 2;
             for (int i = 1; i <= currentMatchCount; i++) {
-                TournamentMatch match = TournamentMatch.builder()
+                newMatches.add(TournamentMatch.builder()
                         .tournament(tournament)
                         .round(round)
                         .matchNumber(i)
                         .status(TournamentMatch.MatchStatus.SCHEDULED)
-                        .build();
-                matchRepository.save(match);
+                        .build());
             }
         }
+
+        matchRepository.saveAll(newMatches);
     }
 
     /**
      * 조별 리그 대진표 생성
+     * 조/경기 객체를 메모리에서 구성 후 Tournament을 통해 일괄 저장
      */
-    private void generateGroupStageBracket(Tournament tournament, List<Long> teamIds) {
+    private void buildGroupStageBracket(Tournament tournament, List<Long> teamIds) {
         int teamCount = teamIds.size();
         int groupCount = tournament.getGroupCount();
         int teamsPerGroup = tournament.getTeamsPerGroup();
@@ -214,18 +206,12 @@ public class BracketGeneratorService {
 
         log.info("조별리그 대진표 생성: {}개 조, 조당 {}팀", groupCount, teamsPerGroup);
 
-        // 팀 조회
-        Map<Long, Team> teamMap = new HashMap<>();
-        for (Long teamId : teamIds) {
-            teamRepository.findById(teamId).ifPresent(team -> teamMap.put(teamId, team));
-        }
-
-        // 프론트엔드에서 전달받은 순서를 그대로 사용 (사용자가 직접 정렬함)
+        Map<Long, Team> teamMap = loadTeams(teamIds);
         List<Long> orderedTeams = new ArrayList<>(teamIds);
 
-        // 조 생성 및 팀 배정
-        List<TournamentGroup> groups = new ArrayList<>();
-        List<List<Team>> groupTeamsList = new ArrayList<>();
+        List<TournamentGroup> newGroups = new ArrayList<>();
+        List<TournamentMatch> newMatches = new ArrayList<>();
+        int matchNumber = 1;
 
         for (int i = 0; i < groupCount; i++) {
             TournamentGroup group = TournamentGroup.builder()
@@ -236,121 +222,100 @@ public class BracketGeneratorService {
                     .build();
 
             List<Team> groupTeams = new ArrayList<>();
-
-            // 조에 팀 배정
             for (int j = 0; j < teamsPerGroup; j++) {
-                int teamIndex = i * teamsPerGroup + j;
-                Long teamId = orderedTeams.get(teamIndex);
+                Long teamId = orderedTeams.get(i * teamsPerGroup + j);
                 if (teamMap.containsKey(teamId)) {
                     Team team = teamMap.get(teamId);
                     group.getTeams().add(team);
                     groupTeams.add(team);
                 }
             }
+            newGroups.add(group);
 
-            groups.add(groupRepository.save(group));
-            groupTeamsList.add(groupTeams);
-        }
-
-        // 각 조별 리그 매치 생성 (라운드 로빈)
-        int matchNumber = 1;
-        for (int g = 0; g < groups.size(); g++) {
-            TournamentGroup group = groups.get(g);
-            List<Team> groupTeams = groupTeamsList.get(g);
-
-            // 조 내 모든 팀이 한 번씩 경기
-            for (int i = 0; i < groupTeams.size(); i++) {
-                for (int j = i + 1; j < groupTeams.size(); j++) {
+            // 조 내 라운드 로빈 경기 생성
+            for (int a = 0; a < groupTeams.size(); a++) {
+                for (int b = a + 1; b < groupTeams.size(); b++) {
                     TournamentMatch match = TournamentMatch.builder()
                             .tournament(tournament)
-                            .round(1) // 조별리그는 모두 1라운드
+                            .round(1)
                             .matchNumber(matchNumber++)
                             .groupId(group.getGroupName())
                             .status(TournamentMatch.MatchStatus.SCHEDULED)
                             .build();
-
-                    // 팀 배정
-                    match.assignTeam1(groupTeams.get(i));
-                    match.assignTeam2(groupTeams.get(j));
-
-                    matchRepository.save(match);
+                    match.assignTeam1(groupTeams.get(a));
+                    match.assignTeam2(groupTeams.get(b));
+                    newMatches.add(match);
                 }
             }
         }
 
         log.info("조별리그 총 {}경기 생성", matchNumber - 1);
 
-        // 결선 토너먼트 매치 미리 생성 (팀은 조별리그 종료 후 배정)
-        generateEmptyKnockoutMatches(tournament, groupCount, tournament.getAdvanceCount());
+        // 결선 토너먼트 빈 경기 생성
+        newMatches.addAll(buildEmptyKnockoutMatches(
+            tournament, groupCount, tournament.getAdvanceCount()));
+
+        groupRepository.saveAll(newGroups);
+        matchRepository.saveAll(newMatches);
     }
 
     /**
-     * 결선 토너먼트 빈 매치 미리 생성 (팀은 나중에 배정)
+     * 결선 토너먼트 빈 매치 목록 반환 (팀은 나중에 배정)
      */
-    private void generateEmptyKnockoutMatches(Tournament tournament, int groupCount, int advanceCount) {
+    private List<TournamentMatch> buildEmptyKnockoutMatches(
+        Tournament tournament, int groupCount, int advanceCount
+    ) {
         int knockoutTeamCount = groupCount * advanceCount;
         int bracketSize = nextPowerOfTwo(knockoutTeamCount);
         int totalRounds = (int) (Math.log(bracketSize) / Math.log(2));
 
         log.info("결선 토너먼트 빈 매치 생성: {}팀 진출 예정, {}라운드", knockoutTeamCount, totalRounds);
 
-        int knockoutRound = 2; // 조별리그가 round 1
+        List<TournamentMatch> knockoutMatches = new ArrayList<>();
+        int knockoutRound = 2;
         int currentMatchCount = bracketSize / 2;
-        int knockoutMatchNumber = 1;
 
-        // 모든 라운드의 빈 매치 생성
         for (int round = knockoutRound; round < knockoutRound + totalRounds; round++) {
-            for (int i = 0; i < currentMatchCount; i++) {
-                TournamentMatch match = TournamentMatch.builder()
+            for (int i = 1; i <= currentMatchCount; i++) {
+                knockoutMatches.add(TournamentMatch.builder()
                         .tournament(tournament)
                         .round(round)
-                        .matchNumber(knockoutMatchNumber++)
+                        .matchNumber(i)
                         .status(TournamentMatch.MatchStatus.SCHEDULED)
-                        .build();
-                matchRepository.save(match);
+                        .build());
             }
-            // 다음 라운드는 경기 수가 절반
             currentMatchCount /= 2;
-            knockoutMatchNumber = 1; // 라운드별로 matchNumber 리셋
         }
 
-        // 준결승이 있는 경우 마지막 라운드에 3,4위전 경기 추가 생성
+        // 3,4위전 추가
         if (totalRounds >= 2) {
             int finalRound = knockoutRound + totalRounds - 1;
-            TournamentMatch thirdPlaceMatch = TournamentMatch.builder()
+            knockoutMatches.add(TournamentMatch.builder()
                     .tournament(tournament)
                     .round(finalRound)
                     .matchNumber(2)
                     .status(TournamentMatch.MatchStatus.SCHEDULED)
-                    .build();
-            matchRepository.save(thirdPlaceMatch);
+                    .build());
         }
 
-        log.info("결선 토너먼트 빈 매치 생성 완료");
+        return knockoutMatches;
     }
 
     /**
      * 스위스 시스템 대진표 생성
      */
-    private void generateSwissSystemBracket(Tournament tournament, List<Long> teamIds) {
+    private void buildSwissSystemBracket(Tournament tournament, List<Long> teamIds) {
         int teamCount = teamIds.size();
-        int rounds = tournament.getSwissRounds();
 
         if (teamCount % 2 != 0) {
             throw new RuntimeException("스위스 시스템은 짝수 팀이 필요합니다.");
         }
 
-        log.info("스위스 시스템 대진표 생성: {}팀, {}라운드", teamCount, rounds);
+        log.info("스위스 시스템 대진표 생성: {}팀, {}라운드", teamCount, tournament.getSwissRounds());
 
-        // 팀 조회
-        Map<Long, Team> teamMap = new HashMap<>();
-        for (Long teamId : teamIds) {
-            teamRepository.findById(teamId).ifPresent(team -> teamMap.put(teamId, team));
-        }
-
-        // 1라운드만 생성 (이후 라운드는 결과에 따라 동적 생성)
-        // 프론트엔드에서 전달받은 순서를 그대로 사용 (사용자가 직접 정렬함)
+        Map<Long, Team> teamMap = loadTeams(teamIds);
         List<Long> orderedTeams = new ArrayList<>(teamIds);
+        List<TournamentMatch> newMatches = new ArrayList<>();
 
         int matchNumber = 1;
         for (int i = 0; i < teamCount; i += 2) {
@@ -361,20 +326,27 @@ public class BracketGeneratorService {
                     .status(TournamentMatch.MatchStatus.SCHEDULED)
                     .build();
 
-            // 팀 배정
             Long team1Id = orderedTeams.get(i);
             Long team2Id = orderedTeams.get(i + 1);
-            if (teamMap.containsKey(team1Id)) {
-                match.assignTeam1(teamMap.get(team1Id));
-            }
-            if (teamMap.containsKey(team2Id)) {
-                match.assignTeam2(teamMap.get(team2Id));
-            }
+            if (teamMap.containsKey(team1Id)) match.assignTeam1(teamMap.get(team1Id));
+            if (teamMap.containsKey(team2Id)) match.assignTeam2(teamMap.get(team2Id));
 
-            matchRepository.save(match);
+            newMatches.add(match);
         }
 
         log.info("스위스 1라운드 {}경기 생성", matchNumber - 1);
+        matchRepository.saveAll(newMatches);
+    }
+
+    /**
+     * 팀 ID 목록으로 팀 Map 조회
+     */
+    private Map<Long, Team> loadTeams(List<Long> teamIds) {
+        Map<Long, Team> teamMap = new HashMap<>();
+        for (Long teamId : teamIds) {
+            teamRepository.findById(teamId).ifPresent(team -> teamMap.put(teamId, team));
+        }
+        return teamMap;
     }
 
     /**

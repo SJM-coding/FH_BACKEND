@@ -83,36 +83,24 @@ public class ParticipantService {
         // 참가 코드로 대회 조회
         Tournament tournament = findByParticipantCode(participantCode);
 
-        // 참가 가능 여부 확인
-        if (!Boolean.TRUE.equals(tournament.getAllowJoin())) {
-            throw new RuntimeException("현재 대회 참가가 마감되었습니다.");
+        // Tournament 상태 기반 불변식 검증
+        if (!tournament.isJoinable()) {
+            throw new IllegalStateException("현재 대회 참가가 불가능합니다.");
         }
 
-        // 모집 상태 확인
-        if (!"OPEN".equalsIgnoreCase(tournament.getRecruitmentStatus())) {
-            throw new RuntimeException("모집이 마감된 대회입니다.");
-        }
-
-        // 최대 팀 수 확인
+        // maxTeams, 중복 참가 검증 (DB 쿼리로 효율적으로 처리)
         long currentCount = participantRepository.countByTournamentIdAndStatus(
-            tournament.getId(),
-            TournamentParticipant.ParticipantStatus.CONFIRMED
-        );
+            tournament.getId(), TournamentParticipant.ParticipantStatus.CONFIRMED);
         if (currentCount >= tournament.getMaxTeams()) {
-            throw new RuntimeException("참가 팀이 마감되었습니다.");
+            throw new IllegalStateException("참가 팀이 마감되었습니다.");
         }
-
-        // 중복 참가 확인
         participantRepository.findByTournamentIdAndTeamId(tournament.getId(), teamId)
-                .ifPresent(p -> {
-                    throw new RuntimeException("이미 참가한 팀입니다.");
-                });
+            .ifPresent(p -> { throw new IllegalStateException("이미 참가 중인 팀입니다."); });
 
-        // 팀 정보 조회
+        // Cross-BC: Team 정보 조회
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new RuntimeException("팀을 찾을 수 없습니다: " + teamId));
 
-        // 참가팀 등록
         TournamentParticipant participant = TournamentParticipant.builder()
                 .tournament(tournament)
                 .teamId(teamId)
@@ -144,11 +132,14 @@ public class ParticipantService {
             throw new RuntimeException("참가 신청자만 취소할 수 있습니다.");
         }
 
-        // 대진표 생성 후에는 취소 불가
-        if (participant.getTournament().getBracketGenerated()) {
-            throw new RuntimeException("대진표가 생성된 후에는 참가 취소가 불가능합니다.");
+        // Tournament 상태 확인 (대진표 생성 여부)
+        Tournament tournament = tournamentRepository.findById(tournamentId)
+                .orElseThrow(() -> new RuntimeException("대회를 찾을 수 없습니다: " + tournamentId));
+        if (Boolean.TRUE.equals(tournament.getBracketGenerated())) {
+            throw new IllegalStateException("대진표가 생성된 후에는 참가 취소가 불가능합니다.");
         }
 
+        // Participant Aggregate가 자신의 상태 변경
         participant.withdraw();
         participantRepository.save(participant);
 

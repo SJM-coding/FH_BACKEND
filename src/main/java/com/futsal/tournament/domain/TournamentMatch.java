@@ -175,31 +175,53 @@ public class TournamentMatch {
     }
 
     /**
-     * 경기 결과 입력 (승부차기 포함)
+     * 경기 결과 입력
+     * 불변식:
+     * - 양 팀이 모두 배정되어야 함
+     * - 결선(isKnockout=true) 동점 시 승부차기 필수
+     * - 승부차기 점수는 동점 불가
+     * - 조별리그(isKnockout=false)에는 승부차기 입력 불가
      */
-    public void recordResult(Integer team1Score, Integer team2Score,
-                             Integer team1PenaltyScore, Integer team2PenaltyScore) {
+    public void recordResult(
+        Integer team1Score, Integer team2Score,
+        Integer team1PenaltyScore, Integer team2PenaltyScore,
+        boolean isKnockout
+    ) {
         if (team1 == null || team2 == null) {
             throw new IllegalStateException("양 팀이 모두 배정되어야 결과를 입력할 수 있습니다.");
+        }
+
+        boolean isDraw = team1Score != null && team2Score != null
+            && team1Score.equals(team2Score);
+
+        if (isKnockout && isDraw) {
+            if (team1PenaltyScore == null || team2PenaltyScore == null) {
+                throw new IllegalStateException(
+                    "결선 토너먼트 동점 경기는 승부차기 점수를 입력해야 합니다.");
+            }
+            if (team1PenaltyScore.equals(team2PenaltyScore)) {
+                throw new IllegalStateException("승부차기 점수는 동점일 수 없습니다.");
+            }
+        }
+
+        if (!isKnockout && (team1PenaltyScore != null || team2PenaltyScore != null)) {
+            throw new IllegalStateException("조별리그 경기에는 승부차기 점수를 입력할 수 없습니다.");
         }
 
         this.team1Score = team1Score;
         this.team2Score = team2Score;
         this.team1PenaltyScore = team1PenaltyScore;
         this.team2PenaltyScore = team2PenaltyScore;
-
-        // 승자 결정
         determineWinner();
-
         this.status = MatchStatus.FINISHED;
         this.finishedAt = LocalDateTime.now();
     }
 
     /**
-     * 경기 결과 입력 (승부차기 없이)
+     * 경기 결과 입력 (승부차기 없이, 조별리그용)
      */
     public void recordResult(Integer team1Score, Integer team2Score) {
-        recordResult(team1Score, team2Score, null, null);
+        recordResult(team1Score, team2Score, null, null, false);
     }
 
     /**

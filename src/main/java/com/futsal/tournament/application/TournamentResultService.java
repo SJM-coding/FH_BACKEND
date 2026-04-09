@@ -49,7 +49,6 @@ public class TournamentResultService {
 
         // 기존 결과가 있으면 삭제 (덮어쓰기)
         if (resultRepository.existsByTournamentId(tournamentId)) {
-            // 기존 자동 생성된 수상 경력도 삭제
             teamAwardRepository.deleteByTournamentId(tournamentId);
             resultRepository.deleteByTournamentId(tournamentId);
         }
@@ -61,11 +60,9 @@ public class TournamentResultService {
                     .orElseThrow(() -> new RuntimeException("팀을 찾을 수 없습니다: " + teamRank.getTeamId()));
 
             AwardType awardType = TournamentResult.getAwardTypeByRank(teamRank.getRank());
-            if (awardType == null) {
-                continue; // 5위 이하는 수상 기록 안 함
-            }
+            if (awardType == null) continue;
 
-            // 대회 결과 저장
+            // TournamentResult Aggregate 저장
             TournamentResult result = TournamentResult.builder()
                     .tournament(tournament)
                     .teamId(team.getId())
@@ -75,16 +72,15 @@ public class TournamentResultService {
                     .build();
             results.add(resultRepository.save(result));
 
-            // 팀 수상 경력 자동 생성
-            TeamAward award = TeamAward.builder()
+            // Cross-BC: 팀 수상 경력 생성 (Team BC)
+            teamAwardRepository.save(TeamAward.builder()
                     .team(team)
                     .tournamentId(tournamentId)
                     .tournamentName(tournament.getTitle())
                     .awardType(awardType)
                     .awardDate(tournament.getTournamentDate())
                     .description(null)
-                    .build();
-            teamAwardRepository.save(award);
+                    .build());
         }
 
         return results.stream()
@@ -120,7 +116,6 @@ public class TournamentResultService {
             throw new RuntimeException("대회 결과를 삭제할 권한이 없습니다");
         }
 
-        // 자동 생성된 수상 경력도 삭제
         teamAwardRepository.deleteByTournamentId(tournamentId);
         resultRepository.deleteByTournamentId(tournamentId);
     }

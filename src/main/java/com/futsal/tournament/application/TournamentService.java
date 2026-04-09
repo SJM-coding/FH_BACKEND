@@ -1,5 +1,6 @@
 package com.futsal.tournament.application;
 
+import com.futsal.tournament.domain.Bracket;
 import com.futsal.tournament.domain.Gender;
 import com.futsal.tournament.domain.PlayerType;
 import com.futsal.tournament.domain.Tournament;
@@ -9,6 +10,7 @@ import com.futsal.tournament.presentation.dto.TournamentListResponse;
 import com.futsal.tournament.presentation.dto.TournamentPageResponse;
 import com.futsal.tournament.presentation.dto.TournamentResponse;
 import com.futsal.tournament.presentation.dto.TournamentUpdateRequest;
+import com.futsal.tournament.infrastructure.BracketRepository;
 import com.futsal.tournament.infrastructure.TournamentRepository;
 import com.futsal.user.domain.User;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,13 +32,16 @@ public class TournamentService {
     private static final int CODE_LENGTH = 6;
 
     private final TournamentRepository tournamentRepository;
+    private final BracketRepository bracketRepository;
     private final TournamentViewCountService tournamentViewCountService;
     private final String defaultPosterUrl;
 
     public TournamentService(TournamentRepository tournamentRepository,
+                             BracketRepository bracketRepository,
                              TournamentViewCountService tournamentViewCountService,
                              @Value("${app.poster.default-url:}") String defaultPosterUrl) {
         this.tournamentRepository = tournamentRepository;
+        this.bracketRepository = bracketRepository;
         this.tournamentViewCountService = tournamentViewCountService;
         this.defaultPosterUrl = defaultPosterUrl;
     }
@@ -101,6 +106,10 @@ public class TournamentService {
                 .build();
 
         Tournament saved = tournamentRepository.save(tournament);
+
+        // Bracket Aggregate 함께 생성 (Tournament와 라이프사이클 공유)
+        bracketRepository.save(Bracket.createDefault(saved.getId()));
+
         return toResponse(saved);
     }
 

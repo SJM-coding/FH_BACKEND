@@ -5,6 +5,7 @@ import com.futsal.team.domain.Team;
 import com.futsal.team.infrastructure.TeamRepository;
 import com.futsal.tournament.domain.*;
 import com.futsal.tournament.presentation.dto.*;
+import com.futsal.tournament.infrastructure.BracketRepository;
 import com.futsal.tournament.infrastructure.TournamentGroupRepository;
 import com.futsal.tournament.infrastructure.TournamentMatchRepository;
 import com.futsal.tournament.infrastructure.TournamentRepository;
@@ -33,6 +34,7 @@ public class BracketCommandService {
   private final TeamRepository teamRepository;
   private final S3Service s3Service;
   private final BracketQueryService bracketQueryService;
+  private final BracketRepository bracketRepository;
 
   // ── 경기 일정 ──────────────────────────────────────────────────────
 
@@ -101,51 +103,34 @@ public class BracketCommandService {
   public MatchResponse recordMatchResult(
       Long tournamentId, Long matchId, MatchResultRequest request) {
 
+    Tournament tournament = findTournament(tournamentId);
     TournamentMatch match = findMatch(matchId);
     verifyMatchBelongsTo(match, tournamentId);
 
-    boolean isKnockout = isKnockoutMatch(match);
-    boolean isDraw = request.getTeam1Score() != null
-        && request.getTeam2Score() != null
-        && request.getTeam1Score().equals(request.getTeam2Score());
+    // Tournament에서 경기 유형 판단 (컨텍스트 제공)
+    boolean isKnockout = tournament.isKnockoutMatch(match);
 
-    if (isKnockout && isDraw) {
-      if (request.getTeam1PenaltyScore() == null
-          || request.getTeam2PenaltyScore() == null) {
-        throw new RuntimeException(
-            "결선 토너먼트 동점 경기는 승부차기 점수를 입력해야 합니다.");
-      }
-      if (request.getTeam1PenaltyScore().equals(request.getTeam2PenaltyScore())) {
-        throw new RuntimeException("승부차기 점수는 동점일 수 없습니다.");
-      }
-    }
-
-    if (!isKnockout
-        && (request.getTeam1PenaltyScore() != null
-            || request.getTeam2PenaltyScore() != null)) {
-      throw new RuntimeException("조별리그 경기에는 승부차기 점수를 입력할 수 없습니다.");
-    }
-
+    // Match Aggregate가 자신의 불변식 검증 후 결과 기록
     match.recordResult(
         request.getTeam1Score(),
         request.getTeam2Score(),
         request.getTeam1PenaltyScore(),
-        request.getTeam2PenaltyScore()
+        request.getTeam2PenaltyScore(),
+        isKnockout
     );
-    TournamentMatch saved = matchRepository.save(match);
+    matchRepository.save(match);
 
-    Tournament tournament = saved.getTournament();
     if (tournament.getTournamentType() == TournamentType.SINGLE_ELIMINATION) {
-      advanceWinnerToNextRound(saved);
+      advanceWinnerToNextRound(match);
     } else if (tournament.getTournamentType() == TournamentType.GROUP_STAGE) {
-      if (saved.getGroupId() != null) {
+      if (match.getGroupId() != null) {
         checkAndGenerateKnockoutBracket(tournament);
       } else {
-        advanceWinnerToNextRound(saved);
+        advanceWinnerToNextRound(match);
       }
     }
 
-    return MatchResponse.from(saved);
+    return MatchResponse.from(match);
   }
 
   // ── 대진표 이미지 ──────────────────────────────────────────────────
@@ -172,8 +157,16 @@ public class BracketCommandService {
       imageUrls.add(s3Service.uploadBracketImage(file));
     }
 
+    // Tournament 필드 업데이트 (하위 호환)
     tournament.switchToManualBracket(imageUrls);
     tournamentRepository.save(tournament);
+
+    // Bracket Aggregate 업데이트 (dual write)
+    Bracket bracket = bracketRepository.findByTournamentId(tournamentId)
+        .orElseGet(() -> Bracket.createDefault(tournamentId));
+    bracket.switchToManual(imageUrls);
+    bracketRepository.save(bracket);
+
     log.info("대진표 이미지 업로드 완료: tournamentId={}, imageCount={}",
         tournamentId, imageUrls.size());
 
@@ -195,8 +188,17 @@ public class BracketCommandService {
   public void clearBracketImages(Long tournamentId, User user) {
     Tournament tournament = findTournament(tournamentId);
     verifyOwner(tournament, user);
+
+    // Tournament 필드 업데이트 (하위 호환)
     tournament.switchToAutoBracket();
     tournamentRepository.save(tournament);
+
+    // Bracket Aggregate 업데이트 (dual write)
+    bracketRepository.findByTournamentId(tournamentId).ifPresent(bracket -> {
+      bracket.switchToAuto();
+      bracketRepository.save(bracket);
+    });
+
     log.info("대진표 이미지 삭제 완료, AUTO 모드로 전환: tournamentId={}", tournamentId);
   }
 
@@ -589,12 +591,6 @@ public class BracketCommandService {
     }
 
     log.info("결선 토너먼트 팀 배정 완료: {}경기", firstRoundMatches.size());
-  }
-
-  private boolean isKnockoutMatch(TournamentMatch match) {
-    TournamentType type = match.getTournament().getTournamentType();
-    return type == TournamentType.SINGLE_ELIMINATION
-        || (type == TournamentType.GROUP_STAGE && match.getGroupId() == null);
   }
 
   private Tournament findTournament(Long tournamentId) {
