@@ -102,7 +102,7 @@ public class ParticipantService {
                 .orElseThrow(() -> new RuntimeException("팀을 찾을 수 없습니다: " + teamId));
 
         TournamentParticipant participant = TournamentParticipant.builder()
-                .tournament(tournament)
+                .tournamentId(tournament.getId())
                 .teamId(teamId)
                 .teamName(team.getName())
                 .teamLogoUrl(team.getLogoUrl())
@@ -159,9 +159,12 @@ public class ParticipantService {
      */
     @Transactional(readOnly = true)
     public List<Tournament> getMyParticipatedTournaments(Long userId) {
-        List<TournamentParticipant> participants = participantRepository.findByRegisteredByWithTournament(userId);
-        return participants.stream()
-                .map(TournamentParticipant::getTournament)
+        List<TournamentParticipant> participants =
+                participantRepository.findByRegisteredByWithTournament(userId);
+        List<Long> tournamentIds = participants.stream()
+                .map(TournamentParticipant::getTournamentId)
+                .distinct()
                 .toList();
+        return tournamentRepository.findAllById(tournamentIds);
     }
 }

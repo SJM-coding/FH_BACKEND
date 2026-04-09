@@ -16,7 +16,7 @@ public interface TournamentParticipantRepository extends JpaRepository<Tournamen
      * 대회별 참가팀 조회 (확정된 팀만)
      */
     @Query("SELECT p FROM TournamentParticipant p " +
-           "WHERE p.tournament.id = :tournamentId " +
+           "WHERE p.tournamentId = :tournamentId " +
            "AND p.status = 'CONFIRMED' " +
            "ORDER BY p.createdAt ASC")
     List<TournamentParticipant> findByTournamentIdAndConfirmed(@Param("tournamentId") Long tournamentId);
@@ -25,7 +25,7 @@ public interface TournamentParticipantRepository extends JpaRepository<Tournamen
      * 특정 팀의 참가 여부 확인
      */
     @Query("SELECT p FROM TournamentParticipant p " +
-           "WHERE p.tournament.id = :tournamentId " +
+           "WHERE p.tournamentId = :tournamentId " +
            "AND p.teamId = :teamId " +
            "AND p.status = 'CONFIRMED'")
     Optional<TournamentParticipant> findByTournamentIdAndTeamId(
@@ -48,32 +48,28 @@ public interface TournamentParticipantRepository extends JpaRepository<Tournamen
     List<TournamentParticipant> findByRegisteredBy(@Param("userId") Long userId);
 
     /**
-     * 사용자가 참가한 대회 목록 조회 (fetch join으로 Tournament와 registeredBy 로드)
+     * 사용자가 참가한 참가 목록 조회 (tournamentId만 담김, 서비스에서 Tournament 별도 로드)
      */
     @Query("SELECT p FROM TournamentParticipant p " +
-           "JOIN FETCH p.tournament t " +
-           "LEFT JOIN FETCH t.registeredBy " +
            "WHERE p.registeredBy = :userId " +
            "AND p.status = 'CONFIRMED' " +
-           "ORDER BY t.tournamentDate DESC")
+           "ORDER BY p.createdAt DESC")
     List<TournamentParticipant> findByRegisteredByWithTournament(@Param("userId") Long userId);
 
     /**
-     * 팀의 대회 참가 이력 조회 (최신순)
+     * 팀의 대회 참가 이력 조회
      */
     @Query("SELECT p FROM TournamentParticipant p " +
-           "JOIN FETCH p.tournament t " +
            "WHERE p.teamId = :teamId " +
-           "ORDER BY t.tournamentDate DESC")
+           "ORDER BY p.createdAt DESC")
     List<TournamentParticipant> findByTeamIdWithTournament(@Param("teamId") Long teamId);
 
     /**
      * 팀의 확정된 참가 이력 조회
      */
     @Query("SELECT p FROM TournamentParticipant p " +
-           "JOIN FETCH p.tournament t " +
            "WHERE p.teamId = :teamId " +
            "AND p.status = 'CONFIRMED' " +
-           "ORDER BY t.tournamentDate DESC")
+           "ORDER BY p.createdAt DESC")
     List<TournamentParticipant> findConfirmedByTeamId(@Param("teamId") Long teamId);
 }

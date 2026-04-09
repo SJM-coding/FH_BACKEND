@@ -17,7 +17,7 @@ public interface TournamentGroupRepository extends JpaRepository<TournamentGroup
      */
     @Query("SELECT g FROM TournamentGroup g " +
            "LEFT JOIN FETCH g.teams " +
-           "WHERE g.tournament.id = :tournamentId " +
+           "WHERE g.tournamentId = :tournamentId " +
            "ORDER BY g.groupOrder ASC")
     List<TournamentGroup> findByTournamentIdWithTeams(@Param("tournamentId") Long tournamentId);
 
@@ -26,7 +26,7 @@ public interface TournamentGroupRepository extends JpaRepository<TournamentGroup
      */
     @Query("SELECT g FROM TournamentGroup g " +
            "LEFT JOIN FETCH g.teams " +
-           "WHERE g.tournament.id = :tournamentId " +
+           "WHERE g.tournamentId = :tournamentId " +
            "AND g.groupName = :groupName")
     Optional<TournamentGroup> findByTournamentIdAndGroupName(
         @Param("tournamentId") Long tournamentId, 

@@ -23,16 +23,17 @@ public class TeamParticipationResponse {
     private String status;
     private String statusDisplayName;
 
-    public static TeamParticipationResponse from(TournamentParticipant participant) {
-        Tournament t = participant.getTournament();
+    public static TeamParticipationResponse from(
+            TournamentParticipant participant, Tournament tournament) {
         return TeamParticipationResponse.builder()
                 .participationId(participant.getId())
-                .tournamentId(t.getId())
-                .tournamentTitle(t.getTitle())
-                .tournamentDate(t.getTournamentDate())
-                .location(t.getLocation())
-                .posterUrl(t.getPosterUrls() != null && !t.getPosterUrls().isEmpty()
-                        ? t.getPosterUrls().get(0) : null)
+                .tournamentId(tournament.getId())
+                .tournamentTitle(tournament.getTitle())
+                .tournamentDate(tournament.getTournamentDate())
+                .location(tournament.getLocation())
+                .posterUrl(tournament.getPosterUrls() != null
+                        && !tournament.getPosterUrls().isEmpty()
+                        ? tournament.getPosterUrls().get(0) : null)
                 .status(participant.getStatus().name())
                 .statusDisplayName(participant.getStatus().getDescription())
                 .build();

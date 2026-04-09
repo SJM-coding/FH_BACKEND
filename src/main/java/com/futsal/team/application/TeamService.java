@@ -27,8 +27,10 @@ import com.futsal.team.infrastructure.TeamAwardRepository;
 import com.futsal.team.infrastructure.TeamMemberRepository;
 import com.futsal.team.infrastructure.TeamRepository;
 import com.futsal.team.infrastructure.TeamTacticsRepository;
+import com.futsal.tournament.domain.Tournament;
 import com.futsal.tournament.domain.TournamentParticipant;
 import com.futsal.tournament.infrastructure.TournamentParticipantRepository;
+import com.futsal.tournament.infrastructure.TournamentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,6 +54,7 @@ public class TeamService {
     private final TeamTacticsRepository teamTacticsRepository;
     private final TeamAwardRepository teamAwardRepository;
     private final TournamentParticipantRepository participantRepository;
+    private final TournamentRepository tournamentRepository;
     private final ObjectMapper objectMapper;
     private final UserRepository userRepository;
 
@@ -399,9 +402,19 @@ public class TeamService {
         teamRepository.findById(teamId)
                 .orElseThrow(() -> new RuntimeException("팀을 찾을 수 없습니다: " + teamId));
 
-        List<TournamentParticipant> participations = participantRepository.findConfirmedByTeamId(teamId);
+        List<TournamentParticipant> participations =
+                participantRepository.findConfirmedByTeamId(teamId);
+
+        List<Long> tournamentIds = participations.stream()
+                .map(TournamentParticipant::getTournamentId)
+                .collect(Collectors.toList());
+        Map<Long, Tournament> tournamentMap = tournamentRepository.findAllById(tournamentIds)
+                .stream()
+                .collect(Collectors.toMap(Tournament::getId, t -> t));
+
         return participations.stream()
-                .map(TeamParticipationResponse::from)
+                .filter(p -> tournamentMap.containsKey(p.getTournamentId()))
+                .map(p -> TeamParticipationResponse.from(p, tournamentMap.get(p.getTournamentId())))
                 .collect(Collectors.toList());
     }
 

@@ -64,7 +64,7 @@ public class TournamentResultService {
 
             // TournamentResult Aggregate 저장
             TournamentResult result = TournamentResult.builder()
-                    .tournament(tournament)
+                    .tournamentId(tournament.getId())
                     .teamId(team.getId())
                     .teamName(team.getName())
                     .rank(teamRank.getRank())

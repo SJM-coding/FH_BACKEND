@@ -21,9 +21,8 @@ public class TournamentMatch {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "tournament_id", nullable = false)
-    private Tournament tournament;
+    @Column(name = "tournament_id", nullable = false)
+    private Long tournamentId;
 
     /**
      * 라운드 번호 (1라운드, 2라운드...)

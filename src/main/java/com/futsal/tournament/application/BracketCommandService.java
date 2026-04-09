@@ -433,7 +433,7 @@ public class BracketCommandService {
     int nextMatchNumber = (match.getMatchNumber() + 1) / 2;
 
     List<TournamentMatch> nextMatches = matchRepository.findByTournamentIdAndRound(
-        match.getTournament().getId(), nextRound);
+        match.getTournamentId(), nextRound);
 
     nextMatches.stream()
         .filter(m -> m.getMatchNumber() == nextMatchNumber)
@@ -458,12 +458,12 @@ public class BracketCommandService {
 
     List<TournamentMatch> currentRoundMatches =
         matchRepository.findByTournamentIdAndRound(
-            match.getTournament().getId(), match.getRound());
+            match.getTournamentId(), match.getRound());
     if (currentRoundMatches.size() != 2) return;
 
     List<TournamentMatch> nextRoundMatches =
         matchRepository.findByTournamentIdAndRound(
-            match.getTournament().getId(), nextRound);
+            match.getTournamentId(), nextRound);
     if (nextRoundMatches.size() < 2) return;
 
     nextRoundMatches.stream()
@@ -606,7 +606,7 @@ public class BracketCommandService {
   }
 
   private void verifyMatchBelongsTo(TournamentMatch match, Long tournamentId) {
-    if (!match.getTournament().getId().equals(tournamentId)) {
+    if (!match.getTournamentId().equals(tournamentId)) {
       throw new RuntimeException("대회 정보가 일치하지 않습니다.");
     }
   }

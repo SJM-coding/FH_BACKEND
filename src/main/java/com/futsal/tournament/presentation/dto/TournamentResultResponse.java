@@ -27,7 +27,7 @@ public class TournamentResultResponse {
     public static TournamentResultResponse from(TournamentResult result) {
         return TournamentResultResponse.builder()
                 .id(result.getId())
-                .tournamentId(result.getTournament().getId())
+                .tournamentId(result.getTournamentId())
                 .teamId(result.getTeamId())
                 .teamName(result.getTeamName())
                 .rank(result.getRank())

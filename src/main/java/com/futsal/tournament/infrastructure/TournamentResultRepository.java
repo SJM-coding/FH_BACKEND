@@ -14,7 +14,7 @@ public interface TournamentResultRepository extends JpaRepository<TournamentResu
     /**
      * 대회별 결과 조회 (순위순)
      */
-    @Query("SELECT r FROM TournamentResult r WHERE r.tournament.id = :tournamentId ORDER BY r.rank ASC")
+    @Query("SELECT r FROM TournamentResult r WHERE r.tournamentId = :tournamentId ORDER BY r.rank ASC")
     List<TournamentResult> findByTournamentId(@Param("tournamentId") Long tournamentId);
 
     /**

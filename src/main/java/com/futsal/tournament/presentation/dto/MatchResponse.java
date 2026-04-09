@@ -57,7 +57,7 @@ public class MatchResponse {
     public static MatchResponse from(TournamentMatch match) {
         MatchResponseBuilder builder = MatchResponse.builder()
                 .id(match.getId())
-                .tournamentId(match.getTournament().getId())
+                .tournamentId(match.getTournamentId())
                 .round(match.getRound())
                 .matchNumber(match.getMatchNumber())
                 .groupId(match.getGroupId())

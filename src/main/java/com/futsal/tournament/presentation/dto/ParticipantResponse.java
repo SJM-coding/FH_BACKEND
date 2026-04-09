@@ -28,7 +28,7 @@ public class ParticipantResponse {
     public static ParticipantResponse from(TournamentParticipant participant) {
         return ParticipantResponse.builder()
                 .id(participant.getId())
-                .tournamentId(participant.getTournament().getId())
+                .tournamentId(participant.getTournamentId())
                 .teamId(participant.getTeamId())
                 .teamName(participant.getTeamName())
                 .teamLogoUrl(participant.getTeamLogoUrl())

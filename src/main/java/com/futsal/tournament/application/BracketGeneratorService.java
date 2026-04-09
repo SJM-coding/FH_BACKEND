@@ -156,7 +156,7 @@ public class BracketGeneratorService {
         int matchNumber = 1;
         for (int i = 0; i < bracketSize; i += 2) {
             TournamentMatch match = TournamentMatch.builder()
-                    .tournament(tournament)
+                    .tournamentId(tournament.getId())
                     .round(1)
                     .matchNumber(matchNumber++)
                     .status(TournamentMatch.MatchStatus.SCHEDULED)
@@ -177,7 +177,7 @@ public class BracketGeneratorService {
             currentMatchCount /= 2;
             for (int i = 1; i <= currentMatchCount; i++) {
                 newMatches.add(TournamentMatch.builder()
-                        .tournament(tournament)
+                        .tournamentId(tournament.getId())
                         .round(round)
                         .matchNumber(i)
                         .status(TournamentMatch.MatchStatus.SCHEDULED)
@@ -215,7 +215,7 @@ public class BracketGeneratorService {
 
         for (int i = 0; i < groupCount; i++) {
             TournamentGroup group = TournamentGroup.builder()
-                    .tournament(tournament)
+                    .tournamentId(tournament.getId())
                     .groupName(generateGroupName(i))
                     .groupOrder(i + 1)
                     .teams(new ArrayList<>())
@@ -236,7 +236,7 @@ public class BracketGeneratorService {
             for (int a = 0; a < groupTeams.size(); a++) {
                 for (int b = a + 1; b < groupTeams.size(); b++) {
                     TournamentMatch match = TournamentMatch.builder()
-                            .tournament(tournament)
+                            .tournamentId(tournament.getId())
                             .round(1)
                             .matchNumber(matchNumber++)
                             .groupId(group.getGroupName())
@@ -278,7 +278,7 @@ public class BracketGeneratorService {
         for (int round = knockoutRound; round < knockoutRound + totalRounds; round++) {
             for (int i = 1; i <= currentMatchCount; i++) {
                 knockoutMatches.add(TournamentMatch.builder()
-                        .tournament(tournament)
+                        .tournamentId(tournament.getId())
                         .round(round)
                         .matchNumber(i)
                         .status(TournamentMatch.MatchStatus.SCHEDULED)
@@ -291,7 +291,7 @@ public class BracketGeneratorService {
         if (totalRounds >= 2) {
             int finalRound = knockoutRound + totalRounds - 1;
             knockoutMatches.add(TournamentMatch.builder()
-                    .tournament(tournament)
+                    .tournamentId(tournament.getId())
                     .round(finalRound)
                     .matchNumber(2)
                     .status(TournamentMatch.MatchStatus.SCHEDULED)
@@ -320,7 +320,7 @@ public class BracketGeneratorService {
         int matchNumber = 1;
         for (int i = 0; i < teamCount; i += 2) {
             TournamentMatch match = TournamentMatch.builder()
-                    .tournament(tournament)
+                    .tournamentId(tournament.getId())
                     .round(1)
                     .matchNumber(matchNumber++)
                     .status(TournamentMatch.MatchStatus.SCHEDULED)

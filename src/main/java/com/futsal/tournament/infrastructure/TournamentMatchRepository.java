@@ -18,7 +18,7 @@ public interface TournamentMatchRepository extends JpaRepository<TournamentMatch
            "LEFT JOIN FETCH m.team1 " +
            "LEFT JOIN FETCH m.team2 " +
            "LEFT JOIN FETCH m.winner " +
-           "WHERE m.tournament.id = :tournamentId " +
+           "WHERE m.tournamentId = :tournamentId " +
            "ORDER BY m.round ASC, m.matchNumber ASC")
     List<TournamentMatch> findByTournamentIdWithTeams(@Param("tournamentId") Long tournamentId);
 
@@ -28,7 +28,7 @@ public interface TournamentMatchRepository extends JpaRepository<TournamentMatch
     @Query("SELECT m FROM TournamentMatch m " +
            "LEFT JOIN FETCH m.team1 " +
            "LEFT JOIN FETCH m.team2 " +
-           "WHERE m.tournament.id = :tournamentId AND m.round = :round " +
+           "WHERE m.tournamentId = :tournamentId AND m.round = :round " +
            "ORDER BY m.matchNumber ASC")
     List<TournamentMatch> findByTournamentIdAndRound(
         @Param("tournamentId") Long tournamentId, 
@@ -41,7 +41,7 @@ public interface TournamentMatchRepository extends JpaRepository<TournamentMatch
     @Query("SELECT m FROM TournamentMatch m " +
            "LEFT JOIN FETCH m.team1 " +
            "LEFT JOIN FETCH m.team2 " +
-           "WHERE m.tournament.id = :tournamentId AND m.groupId = :groupId " +
+           "WHERE m.tournamentId = :tournamentId AND m.groupId = :groupId " +
            "ORDER BY m.matchNumber ASC")
     List<TournamentMatch> findByTournamentIdAndGroupId(
         @Param("tournamentId") Long tournamentId, 
@@ -52,7 +52,7 @@ public interface TournamentMatchRepository extends JpaRepository<TournamentMatch
      * 특정 팀의 경기 조회
      */
     @Query("SELECT m FROM TournamentMatch m " +
-           "WHERE m.tournament.id = :tournamentId " +
+           "WHERE m.tournamentId = :tournamentId " +
            "AND (m.team1.id = :teamId OR m.team2.id = :teamId) " +
            "ORDER BY m.round ASC, m.matchNumber ASC")
     List<TournamentMatch> findByTournamentIdAndTeamId(
@@ -63,14 +63,14 @@ public interface TournamentMatchRepository extends JpaRepository<TournamentMatch
     /**
      * 대회의 최대 라운드 조회
      */
-    @Query("SELECT MAX(m.round) FROM TournamentMatch m WHERE m.tournament.id = :tournamentId")
+    @Query("SELECT MAX(m.round) FROM TournamentMatch m WHERE m.tournamentId = :tournamentId")
     Integer findMaxRoundByTournamentId(@Param("tournamentId") Long tournamentId);
 
     /**
      * 특정 라운드 완료 여부 확인
      */
     @Query("SELECT COUNT(m) = 0 FROM TournamentMatch m " +
-           "WHERE m.tournament.id = :tournamentId " +
+           "WHERE m.tournamentId = :tournamentId " +
            "AND m.round = :round " +
            "AND m.status != 'FINISHED'")
     boolean isRoundCompleted(
@@ -82,7 +82,7 @@ public interface TournamentMatchRepository extends JpaRepository<TournamentMatch
      * 다음 경기 조회 (아직 시작 안한 것 중 가장 빠른 것)
      */
     @Query("SELECT m FROM TournamentMatch m " +
-           "WHERE m.tournament.id = :tournamentId " +
+           "WHERE m.tournamentId = :tournamentId " +
            "AND m.status = 'SCHEDULED' " +
            "ORDER BY m.round ASC, m.matchNumber ASC")
     List<TournamentMatch> findUpcomingMatches(@Param("tournamentId") Long tournamentId);
