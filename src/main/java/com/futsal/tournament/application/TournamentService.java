@@ -11,7 +11,12 @@ import com.futsal.tournament.presentation.dto.TournamentPageResponse;
 import com.futsal.tournament.presentation.dto.TournamentResponse;
 import com.futsal.tournament.presentation.dto.TournamentUpdateRequest;
 import com.futsal.tournament.infrastructure.BracketRepository;
+import com.futsal.tournament.infrastructure.TournamentGroupRepository;
+import com.futsal.tournament.infrastructure.TournamentMatchRepository;
+import com.futsal.tournament.infrastructure.TournamentParticipantRepository;
 import com.futsal.tournament.infrastructure.TournamentRepository;
+import com.futsal.tournament.infrastructure.TournamentResultRepository;
+import com.futsal.team.infrastructure.TeamAwardRepository;
 import com.futsal.user.domain.User;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -33,15 +38,30 @@ public class TournamentService {
 
     private final TournamentRepository tournamentRepository;
     private final BracketRepository bracketRepository;
+    private final TournamentMatchRepository matchRepository;
+    private final TournamentParticipantRepository participantRepository;
+    private final TournamentResultRepository resultRepository;
+    private final TournamentGroupRepository groupRepository;
+    private final TeamAwardRepository teamAwardRepository;
     private final TournamentViewCountService tournamentViewCountService;
     private final String defaultPosterUrl;
 
     public TournamentService(TournamentRepository tournamentRepository,
                              BracketRepository bracketRepository,
+                             TournamentMatchRepository matchRepository,
+                             TournamentParticipantRepository participantRepository,
+                             TournamentResultRepository resultRepository,
+                             TournamentGroupRepository groupRepository,
+                             TeamAwardRepository teamAwardRepository,
                              TournamentViewCountService tournamentViewCountService,
                              @Value("${app.poster.default-url:}") String defaultPosterUrl) {
         this.tournamentRepository = tournamentRepository;
         this.bracketRepository = bracketRepository;
+        this.matchRepository = matchRepository;
+        this.participantRepository = participantRepository;
+        this.resultRepository = resultRepository;
+        this.groupRepository = groupRepository;
+        this.teamAwardRepository = teamAwardRepository;
         this.tournamentViewCountService = tournamentViewCountService;
         this.defaultPosterUrl = defaultPosterUrl;
     }
@@ -364,6 +384,14 @@ public class TournamentService {
             throw new RuntimeException("대회를 삭제할 권한이 없습니다");
         }
 
+        // Team BC 먼저 (FK 의존성 없음)
+        teamAwardRepository.deleteByTournamentId(id);
+        // Tournament BC 자식 데이터 삭제
+        matchRepository.deleteByTournamentId(id);
+        groupRepository.deleteByTournamentId(id);
+        participantRepository.deleteByTournamentId(id);
+        resultRepository.deleteByTournamentId(id);
+        bracketRepository.deleteByTournamentId(id);
         tournamentRepository.deleteById(id);
     }
 

@@ -75,6 +75,16 @@ public interface TournamentParticipantRepository extends JpaRepository<Tournamen
     List<TournamentParticipant> findConfirmedByTeamId(@Param("teamId") Long teamId);
 
     /**
+     * 대회 삭제 시 참가 기록 일괄 삭제
+     */
+    void deleteByTournamentId(Long tournamentId);
+
+    /**
+     * 사용자 탈퇴 시 등록한 참가 기록 삭제
+     */
+    void deleteByRegisteredBy(Long userId);
+
+    /**
      * 팀 프로필 변경 시 역정규화 필드 일괄 동기화
      */
     @Modifying

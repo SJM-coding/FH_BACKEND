@@ -7,8 +7,6 @@ import com.futsal.tournament.infrastructure.TournamentResultRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
@@ -26,7 +24,6 @@ public class TeamProfileChangedEventListener {
     private final TournamentMatchRepository matchRepository;
 
     @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
-    @Transactional(propagation = Propagation.MANDATORY)
     public void on(TeamProfileChangedEvent event) {
         log.info("팀 프로필 변경 동기화: teamId={}, name={}", event.teamId(), event.name());
 

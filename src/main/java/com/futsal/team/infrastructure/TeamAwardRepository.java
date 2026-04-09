@@ -29,6 +29,13 @@ public interface TeamAwardRepository extends JpaRepository<TeamAward, Long> {
     void deleteByTournamentId(Long tournamentId);
 
     /**
+     * 팀 삭제 시 수상 경력 일괄 삭제
+     */
+    @Modifying
+    @Query("DELETE FROM TeamAward a WHERE a.team.id = :teamId")
+    void deleteByTeamId(@Param("teamId") Long teamId);
+
+    /**
      * 대회 제목 변경 시 역정규화 필드 일괄 동기화
      */
     @Modifying

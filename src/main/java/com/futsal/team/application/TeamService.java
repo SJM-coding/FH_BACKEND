@@ -200,9 +200,8 @@ public class TeamService {
             throw new RuntimeException("팀을 삭제할 권한이 없습니다");
         }
         
-        List<TeamMember> members = teamMemberRepository.findByTeam(team);
-        teamMemberRepository.deleteAll(members);
-        
+        teamAwardRepository.deleteByTeamId(teamId);
+        teamMemberRepository.deleteByTeamId(teamId);
         teamRepository.delete(team);
     }
 

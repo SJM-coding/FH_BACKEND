@@ -37,4 +37,9 @@ public interface TournamentGroupRepository extends JpaRepository<TournamentGroup
      * 대회의 조 개수 조회
      */
     Long countByTournamentId(Long tournamentId);
+
+    /**
+     * 대회 삭제 시 조 일괄 삭제
+     */
+    void deleteByTournamentId(Long tournamentId);
 }

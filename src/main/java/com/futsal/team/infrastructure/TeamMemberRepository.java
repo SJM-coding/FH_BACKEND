@@ -62,6 +62,16 @@ public interface TeamMemberRepository extends JpaRepository<TeamMember, Long> {
     List<TeamMember> findByUserAndStatusWithTeam(@Param("user") User user, @Param("status") TeamMemberStatus status);
 
     /**
+     * 팀 삭제 시 멤버 일괄 삭제
+     */
+    void deleteByTeamId(Long teamId);
+
+    /**
+     * 사용자 탈퇴 시 멤버십 일괄 삭제
+     */
+    void deleteByUserId(Long userId);
+
+    /**
      * 여러 팀의 활성 멤버 수를 한 번에 조회 (N+1 방지)
      */
     @Query("""

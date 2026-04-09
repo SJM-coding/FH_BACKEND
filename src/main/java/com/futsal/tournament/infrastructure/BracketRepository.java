@@ -10,4 +10,6 @@ public interface BracketRepository extends JpaRepository<Bracket, Long> {
     Optional<Bracket> findByTournamentId(Long tournamentId);
 
     boolean existsByTournamentId(Long tournamentId);
+
+    void deleteByTournamentId(Long tournamentId);
 }
