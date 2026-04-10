@@ -2,8 +2,10 @@ package com.futsal.tournament.application;
 
 import com.futsal.team.domain.Team;
 import com.futsal.team.infrastructure.TeamRepository;
+import com.futsal.tournament.domain.Bracket;
 import com.futsal.tournament.domain.Tournament;
 import com.futsal.tournament.domain.TournamentParticipant;
+import com.futsal.tournament.infrastructure.BracketRepository;
 import com.futsal.tournament.infrastructure.TournamentParticipantRepository;
 import com.futsal.tournament.infrastructure.TournamentRepository;
 import lombok.RequiredArgsConstructor;
@@ -11,7 +13,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.security.SecureRandom;
 import java.util.List;
 
 /**
@@ -24,14 +25,12 @@ public class ParticipantService {
 
     private final TournamentRepository tournamentRepository;
     private final TournamentParticipantRepository participantRepository;
-    private final TournamentService tournamentService;
     private final TeamRepository teamRepository;
-
-    private static final String CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    private static final int CODE_LENGTH = 6;
+    private final BracketRepository bracketRepository;
 
     /**
-     * 운영진 코드 생성 (대회 확정 시 호출)
+     * 운영진 코드 발급 (대회 확정 시 호출)
+     * 코드 생성 책임은 Tournament Aggregate → ShareCode VO에 위임한다.
      */
     @Transactional
     public String generateStaffCode(Long tournamentId, Long userId) {
@@ -39,40 +38,19 @@ public class ParticipantService {
                 .orElseThrow(() -> new RuntimeException("대회를 찾을 수 없습니다: " + tournamentId));
 
         // 권한 확인
-        if (tournament.getRegisteredById() == null || !tournament.getRegisteredById().equals(userId)) {
+        if (tournament.getRegisteredById() == null
+                || !tournament.getRegisteredById().equals(userId)) {
             throw new RuntimeException("대회 주최자만 운영진 코드를 생성할 수 있습니다.");
         }
 
-        // 이미 운영진 코드가 있으면 반환
-        if (tournament.getStaffCode() != null) {
-            return tournament.getStaffCode();
-        }
-
-        // 고유한 운영진 코드 생성
-        String staffCode = tournamentService.generateUniqueStaffCode();
-        tournament.setStaffCode(staffCode);
+        // Tournament Aggregate가 코드 발급 (이미 있으면 내부에서 무시)
+        tournament.issueStaffCode(
+            code -> !tournamentRepository.existsByStaffCode(code));
         tournamentRepository.save(tournament);
 
-        log.info("운영진 코드 생성: 대회 ID={}, 코드={}", tournamentId, staffCode);
-        return staffCode;
-    }
-
-    /**
-     * 참가 코드로 대회 조회 (참가 신청용)
-     */
-    @Transactional(readOnly = true)
-    public Tournament findByParticipantCode(String participantCode) {
-        return tournamentRepository.findByParticipantCode(participantCode)
-                .orElseThrow(() -> new RuntimeException("유효하지 않은 참가코드입니다: " + participantCode));
-    }
-
-    /**
-     * 운영진 코드로 대회 조회 (점수 입력용)
-     */
-    @Transactional(readOnly = true)
-    public Tournament findByStaffCode(String staffCode) {
-        return tournamentRepository.findByStaffCode(staffCode)
-                .orElseThrow(() -> new RuntimeException("유효하지 않은 운영진코드입니다: " + staffCode));
+        log.info("운영진 코드 생성: 대회 ID={}, 코드={}",
+            tournamentId, tournament.getStaffCode());
+        return tournament.getStaffCode();
     }
 
     /**
@@ -87,6 +65,13 @@ public class ParticipantService {
                 .getId();
         Tournament tournament = tournamentRepository.findByIdForUpdate(tournamentId)
                 .orElseThrow(() -> new RuntimeException("대회를 찾을 수 없습니다."));
+
+        // 대진표 생성 여부 확인 (Bracket aggregate)
+        boolean bracketGenerated = bracketRepository.findByTournamentId(tournamentId)
+                .map(Bracket::isGenerated).orElse(false);
+        if (bracketGenerated) {
+            throw new IllegalStateException("대진표가 생성된 후에는 참가 신청이 불가능합니다.");
+        }
 
         // Tournament 상태 기반 불변식 검증
         if (!tournament.isJoinable()) {
@@ -139,10 +124,9 @@ public class ParticipantService {
             throw new RuntimeException("참가 신청자만 취소할 수 있습니다.");
         }
 
-        // Tournament 상태 확인 (대진표 생성 여부)
-        Tournament tournament = tournamentRepository.findById(tournamentId)
-                .orElseThrow(() -> new RuntimeException("대회를 찾을 수 없습니다: " + tournamentId));
-        if (Boolean.TRUE.equals(tournament.getBracketGenerated())) {
+        boolean bracketGenerated = bracketRepository.findByTournamentId(tournamentId)
+            .map(Bracket::isGenerated).orElse(false);
+        if (bracketGenerated) {
             throw new IllegalStateException("대진표가 생성된 후에는 참가 취소가 불가능합니다.");
         }
 
@@ -174,4 +158,5 @@ public class ParticipantService {
                 .toList();
         return tournamentRepository.findAllById(tournamentIds);
     }
+
 }

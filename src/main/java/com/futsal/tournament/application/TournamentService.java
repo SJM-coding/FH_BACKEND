@@ -3,6 +3,7 @@ package com.futsal.tournament.application;
 import com.futsal.tournament.domain.Bracket;
 import com.futsal.tournament.domain.Gender;
 import com.futsal.tournament.domain.PlayerType;
+import com.futsal.tournament.domain.ShareCode;
 import com.futsal.tournament.domain.Tournament;
 import com.futsal.tournament.domain.TournamentType;
 import com.futsal.tournament.presentation.dto.TournamentCreateRequest;
@@ -24,7 +25,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -34,8 +34,6 @@ import java.util.stream.Collectors;
 @Service
 public class TournamentService {
 
-    private static final String CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    private static final int CODE_LENGTH = 6;
     private static final long NEW_TOURNAMENT_HOURS = 24;
     private static final int REMAINING_TEAMS_ALERT_THRESHOLD = 4;
 
@@ -86,10 +84,11 @@ public class TournamentService {
         Boolean isExternal = request.getIsExternal() != null ? request.getIsExternal() : false;
         Boolean allowJoin = isExternal ? false : true;
 
-        // 참가 코드 생성 (내부 대회만)
-        String participantCode = null;
+        // 참가 코드 생성 (내부 대회만) — ShareCode VO가 고유성 검증 담당
+        ShareCode shareCode = null;
         if (!isExternal) {
-            participantCode = generateUniqueParticipantCode();
+            shareCode = ShareCode.generateParticipantCode(
+                code -> !tournamentRepository.existsByParticipantCode(code));
         }
 
         // 외부 대회: EXTERNAL 타입, maxTeams=0 / 내부 대회: 요청값 또는 기본값
@@ -124,7 +123,7 @@ public class TournamentService {
                 .isExternal(isExternal)
                 .externalUrl(request.getExternalUrl())
                 .allowJoin(allowJoin)
-                .participantCode(participantCode)
+                .shareCode(shareCode)
                 .registeredBy(registeredBy)
                 .build();
 
@@ -244,6 +243,9 @@ public class TournamentService {
     }
 
     private TournamentResponse toResponse(Tournament tournament, int viewCount) {
+        Bracket bracket = bracketRepository.findByTournamentId(tournament.getId())
+            .orElseGet(() -> Bracket.createDefault(tournament.getId()));
+
         TournamentResponse response = new TournamentResponse(
                 tournament.getId(),
                 tournament.getTitle(),
@@ -260,9 +262,9 @@ public class TournamentService {
                 tournament.getTeamsPerGroup(),
                 tournament.getAdvanceCount(),
                 tournament.getSwissRounds(),
-                tournament.getBracketGenerated(),
-                tournament.getBracketType() != null ? tournament.getBracketType().name() : "AUTO",
-                tournament.getBracketImageUrls() != null ? tournament.getBracketImageUrls() : new ArrayList<>(),
+                bracket.isGenerated(),
+                bracket.getType().name(),
+                bracket.getImageUrls(),
                 tournament.getPosterUrls() != null ? tournament.getPosterUrls() : new ArrayList<>(),
                 tournament.getRecruitmentStatus(),
                 tournament.getRegisteredBy() != null ? tournament.getRegisteredBy().getId() : null,
@@ -555,38 +557,4 @@ public class TournamentService {
         return null;
     }
 
-    /**
-     * 고유한 참가 코드 생성
-     */
-    private String generateUniqueParticipantCode() {
-        String code;
-        do {
-            code = generateRandomCode();
-        } while (tournamentRepository.existsByParticipantCode(code));
-        return code;
-    }
-
-    /**
-     * 고유한 운영진 코드 생성
-     */
-    public String generateUniqueStaffCode() {
-        String code;
-        do {
-            code = generateRandomCode();
-        } while (tournamentRepository.existsByStaffCode(code));
-        return code;
-    }
-
-    /**
-     * 랜덤 코드 생성
-     */
-    private String generateRandomCode() {
-        SecureRandom random = new SecureRandom();
-        StringBuilder code = new StringBuilder(CODE_LENGTH);
-        for (int i = 0; i < CODE_LENGTH; i++) {
-            int index = random.nextInt(CODE_CHARS.length());
-            code.append(CODE_CHARS.charAt(index));
-        }
-        return code.toString();
-    }
 }

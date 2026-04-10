@@ -15,6 +15,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Predicate;
 
 @Entity
 @Table(
@@ -84,29 +85,6 @@ public class Tournament extends AbstractAggregateRoot<Tournament> {
     @Column
     private Integer swissRounds;
 
-    @Column(nullable = false)
-    @Builder.Default
-    private Boolean bracketGenerated = false;
-
-    /**
-     * 대진표 생성 방식
-     * AUTO: 시스템 자동 생성 (TournamentMatch 테이블 사용)
-     * MANUAL: 이미지 직접 업로드
-     */
-    @Enumerated(EnumType.STRING)
-    @Column(length = 10)
-    @Builder.Default
-    private BracketType bracketType = BracketType.AUTO;
-
-    /**
-     * 대진표 이미지 URL 목록 (MANUAL 타입일 때 사용)
-     */
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "tournament_bracket_images", joinColumns = @JoinColumn(name = "tournament_id"))
-    @Column(name = "image_url", length = 500)
-    @Builder.Default
-    private List<String> bracketImageUrls = new ArrayList<>();
-
     @Column(columnDefinition = "JSON")
     @Convert(converter = StringListConverter.class)
     @Builder.Default
@@ -117,18 +95,11 @@ public class Tournament extends AbstractAggregateRoot<Tournament> {
     private String recruitmentStatus = "OPEN"; // 모집 상태: OPEN(모집중), CLOSED(마감)
 
     /**
-     * 참가 코드: 참가팀이 대회에 참가 신청할 때 사용
-     * 대회 생성 시 자동 생성
+     * 참가 코드 / 운영진 코드 — ShareCode VO에 위임
+     * 컬럼은 그대로 participant_code / staff_code 유지 (마이그레이션 불필요)
      */
-    @Column(length = 8, unique = true)
-    private String participantCode;
-
-    /**
-     * 운영진 코드: 운영진이 점수 입력 페이지에 접근할 때 사용
-     * 대회 확정 시 생성
-     */
-    @Column(length = 8, unique = true)
-    private String staffCode;
+    @Embedded
+    private ShareCode shareCode;
 
     @Column(nullable = false)
     @Builder.Default
@@ -202,55 +173,41 @@ public class Tournament extends AbstractAggregateRoot<Tournament> {
         this.posterUrls = posterUrls != null ? posterUrls : new ArrayList<>();
     }
 
-    /**
-     * 대진표 이미지 목록 설정
-     */
-    public void setBracketImageUrls(List<String> bracketImageUrls) {
-        this.bracketImageUrls = bracketImageUrls != null ? bracketImageUrls : new ArrayList<>();
+    // ── ShareCode 위임 접근자 (기존 호출 코드 호환) ──────────────────
+
+    /** 참가 코드 반환 (외부 대회는 null) */
+    public String getParticipantCode() {
+        return shareCode != null ? shareCode.getParticipantCode() : null;
+    }
+
+    /** 운영진 코드 반환 (미발급 시 null) */
+    public String getStaffCode() {
+        return shareCode != null ? shareCode.getStaffCode() : null;
     }
 
     /**
-     * 대진표를 이미지 모드로 전환
+     * 운영진 코드 발급 — Tournament Aggregate의 도메인 행위
+     * 이미 발급된 경우 아무 변화 없음.
+     *
+     * @param isUnique staffCode 고유성 검증 술어 (Application Service가 주입)
      */
-    public void switchToManualBracket(List<String> imageUrls) {
-        this.bracketType = BracketType.MANUAL;
-        this.bracketImageUrls = imageUrls != null ? imageUrls : new ArrayList<>();
-        this.bracketGenerated = !this.bracketImageUrls.isEmpty();
+    public void issueStaffCode(Predicate<String> isUnique) {
+        if (this.shareCode == null) {
+            throw new IllegalStateException(
+                "참가 코드가 없는 대회에는 운영진 코드를 발급할 수 없습니다.");
+        }
+        this.shareCode = this.shareCode.issueStaffCode(isUnique);
     }
 
-    /**
-     * 대진표를 자동 생성 모드로 전환
-     */
-    public void switchToAutoBracket() {
-        this.bracketType = BracketType.AUTO;
-        this.bracketImageUrls = new ArrayList<>();
-        this.bracketGenerated = false;
-    }
+    // ── 불변식 / 상태 검증 ────────────────────────────────────────────
 
     /**
-     * 대진표가 이미지 모드인지 확인
-     */
-    public boolean isManualBracket() {
-        return this.bracketType == BracketType.MANUAL;
-    }
-
-    /**
-     * 대진표 자동 생성 완료 처리
-     */
-    public void markBracketGenerated() {
-        this.bracketType = BracketType.AUTO;
-        this.bracketGenerated = true;
-    }
-
-    /**
-     * 참가 신청 가능 여부
-     * Application Service가 이 상태를 읽고 판단
+     * 참가 신청 가능 여부 (대진표 생성 여부는 Bracket aggregate에서 확인)
      */
     public boolean isJoinable() {
         return !Boolean.TRUE.equals(this.isExternal)
             && Boolean.TRUE.equals(this.allowJoin)
-            && "OPEN".equalsIgnoreCase(this.recruitmentStatus)
-            && !Boolean.TRUE.equals(this.bracketGenerated);
+            && "OPEN".equalsIgnoreCase(this.recruitmentStatus);
     }
 
     /**
