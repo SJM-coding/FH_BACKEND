@@ -5,6 +5,7 @@ import com.futsal.team.infrastructure.TeamRepository;
 import com.futsal.tournament.domain.*;
 import com.futsal.tournament.presentation.dto.BracketResponse;
 import com.futsal.tournament.presentation.dto.MatchResponse;
+import com.futsal.tournament.infrastructure.BracketRepository;
 import com.futsal.tournament.infrastructure.TournamentGroupRepository;
 import com.futsal.tournament.infrastructure.TournamentMatchRepository;
 import com.futsal.tournament.infrastructure.TournamentRepository;
@@ -29,6 +30,16 @@ public class BracketQueryService {
   private final TournamentMatchRepository matchRepository;
   private final TournamentGroupRepository groupRepository;
   private final TeamRepository teamRepository;
+  private final BracketRepository bracketRepository;
+
+  /**
+   * 대진표 생성 여부 조회
+   */
+  @Transactional(readOnly = true)
+  public boolean isBracketGenerated(Long tournamentId) {
+    return bracketRepository.findByTournamentId(tournamentId)
+        .map(Bracket::isGenerated).orElse(false);
+  }
 
   /**
    * 대진표 전체 조회
@@ -41,25 +52,28 @@ public class BracketQueryService {
         .orElseThrow(() -> new RuntimeException(
             "대회를 찾을 수 없습니다: " + tournamentId));
 
+    Bracket bracket = bracketRepository.findByTournamentId(tournamentId)
+        .orElseGet(() -> Bracket.createDefault(tournamentId));
+
     log.info("대회 조회 완료: id={}, type={}, bracketType={}, bracketGenerated={}",
         tournament.getId(), tournament.getTournamentType(),
-        tournament.getBracketType(), tournament.getBracketGenerated());
+        bracket.getType(), bracket.isGenerated());
 
-    if (!Boolean.TRUE.equals(tournament.getBracketGenerated())) {
+    if (!bracket.isGenerated()) {
       return BracketResponse.builder()
           .tournamentId(tournament.getId())
           .tournamentTitle(tournament.getTitle())
           .tournamentType(tournament.getTournamentType() != null
               ? tournament.getTournamentType().name() : null)
-          .bracketType(tournament.getBracketType() != null
-              ? tournament.getBracketType().name() : BracketType.AUTO.name())
+          .bracketType(bracket.getType() != null
+              ? bracket.getType().name() : BracketType.AUTO.name())
           .bracketGenerated(false)
           .build();
     }
 
     // MANUAL 타입: 이미지 URL만 반환
-    if (tournament.isManualBracket()) {
-      List<String> imageUrls = new ArrayList<>(tournament.getBracketImageUrls());
+    if (bracket.isManual()) {
+      List<String> imageUrls = new ArrayList<>(bracket.getImageUrls());
       log.info("수동 대진표 조회: {}개 이미지", imageUrls.size());
       return BracketResponse.builder()
           .tournamentId(tournament.getId())
@@ -81,7 +95,7 @@ public class BracketQueryService {
         .tournamentTitle(tournament.getTitle())
         .tournamentType(tournament.getTournamentType().name())
         .bracketType(BracketType.AUTO.name())
-        .bracketGenerated(tournament.getBracketGenerated());
+        .bracketGenerated(bracket.isGenerated());
 
     return switch (tournament.getTournamentType()) {
       case SINGLE_ELIMINATION ->

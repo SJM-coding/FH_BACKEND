@@ -48,7 +48,7 @@ public class ShareCodeController {
         response.put("tournamentDate", tournament.getTournamentDate());
         response.put("location", tournament.getLocation());
         response.put("tournamentType", tournament.getTournamentType().name());
-        response.put("bracketGenerated", tournament.getBracketGenerated());
+        response.put("bracketGenerated", bracketQueryService.isBracketGenerated(tournament.getId()));
 
         return ResponseEntity.ok(response);
     }
@@ -66,7 +66,7 @@ public class ShareCodeController {
             return ResponseEntity.status(404).body(Map.of("error", "유효하지 않은 운영진코드입니다."));
         }
 
-        if (!Boolean.TRUE.equals(tournament.getBracketGenerated())) {
+        if (!bracketQueryService.isBracketGenerated(tournament.getId())) {
             return ResponseEntity.badRequest().body(Map.of("error", "아직 대진표가 생성되지 않았습니다."));
         }
 
@@ -95,7 +95,7 @@ public class ShareCodeController {
             return ResponseEntity.status(404).body(Map.of("error", "유효하지 않은 운영진코드입니다."));
         }
 
-        if (!Boolean.TRUE.equals(tournament.getBracketGenerated())) {
+        if (!bracketQueryService.isBracketGenerated(tournament.getId())) {
             return ResponseEntity.badRequest().body(Map.of("error", "아직 대진표가 생성되지 않았습니다."));
         }
 
@@ -119,7 +119,7 @@ public class ShareCodeController {
             return ResponseEntity.status(404).body(Map.of("error", "유효하지 않은 운영진코드입니다."));
         }
 
-        if (!Boolean.TRUE.equals(tournament.getBracketGenerated())) {
+        if (!bracketQueryService.isBracketGenerated(tournament.getId())) {
             return ResponseEntity.badRequest().body(Map.of("error", "아직 대진표가 생성되지 않았습니다."));
         }
 
@@ -148,7 +148,7 @@ public class ShareCodeController {
             return ResponseEntity.status(404).body(Map.of("error", "유효하지 않은 운영진코드입니다."));
         }
 
-        if (!Boolean.TRUE.equals(tournament.getBracketGenerated())) {
+        if (!bracketQueryService.isBracketGenerated(tournament.getId())) {
             return ResponseEntity.badRequest().body(Map.of("error", "아직 대진표가 생성되지 않았습니다."));
         }
 

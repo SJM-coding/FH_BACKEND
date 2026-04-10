@@ -16,6 +16,7 @@ import org.springframework.stereotype.Repository;
 import jakarta.persistence.LockModeType;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -33,6 +34,32 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
         AND (:playerType IS NULL OR t.playerType = :playerType)
         AND (:recruitmentStatus IS NULL OR t.recruitmentStatus = :recruitmentStatus)
       ORDER BY
+          CASE
+              WHEN t.isExternal = false
+               AND t.recruitmentStatus = 'OPEN'
+               AND t.maxTeams > 0
+               AND (
+                   t.maxTeams - (
+                       SELECT COUNT(p)
+                       FROM TournamentParticipant p
+                       WHERE p.tournamentId = t.id
+                         AND p.status = 'CONFIRMED'
+                   )
+               ) BETWEEN 1 AND 4 THEN 0
+              WHEN t.isExternal = false
+               AND t.recruitmentStatus = 'OPEN'
+               AND t.maxTeams > 0
+               AND (
+                   SELECT COUNT(p)
+                   FROM TournamentParticipant p
+                   WHERE p.tournamentId = t.id
+                     AND p.status = 'CONFIRMED'
+               ) >= (t.maxTeams + 1) / 2 THEN 1
+              WHEN t.isExternal = false
+               AND t.recruitmentStatus = 'OPEN'
+               AND t.createdAt >= :newThreshold THEN 2
+              ELSE 3
+          END ASC,
           CASE
               WHEN t.tournamentDate = CURRENT_DATE THEN 0
               WHEN t.recruitmentStatus = 'OPEN'    THEN 1
@@ -52,6 +79,7 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
       @Param("gender") Gender gender,
       @Param("playerType") PlayerType playerType,
       @Param("recruitmentStatus") String recruitmentStatus,
+      @Param("newThreshold") LocalDateTime newThreshold,
       Pageable pageable
   );
 
@@ -65,6 +93,32 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
       WHERE t.title LIKE CONCAT('%', :keyword, '%')
          OR t.location LIKE CONCAT('%', :keyword, '%')
       ORDER BY
+          CASE
+              WHEN t.isExternal = false
+               AND t.recruitmentStatus = 'OPEN'
+               AND t.maxTeams > 0
+               AND (
+                   t.maxTeams - (
+                       SELECT COUNT(p)
+                       FROM TournamentParticipant p
+                       WHERE p.tournamentId = t.id
+                         AND p.status = 'CONFIRMED'
+                   )
+               ) BETWEEN 1 AND 4 THEN 0
+              WHEN t.isExternal = false
+               AND t.recruitmentStatus = 'OPEN'
+               AND t.maxTeams > 0
+               AND (
+                   SELECT COUNT(p)
+                   FROM TournamentParticipant p
+                   WHERE p.tournamentId = t.id
+                     AND p.status = 'CONFIRMED'
+               ) >= (t.maxTeams + 1) / 2 THEN 1
+              WHEN t.isExternal = false
+               AND t.recruitmentStatus = 'OPEN'
+               AND t.createdAt >= :newThreshold THEN 2
+              ELSE 3
+          END ASC,
           CASE
               WHEN t.tournamentDate = CURRENT_DATE THEN 0
               WHEN t.recruitmentStatus = 'OPEN'    THEN 1
@@ -81,6 +135,7 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
       """)
   Page<Tournament> findPagedByKeyword(
       @Param("keyword") String keyword,
+      @Param("newThreshold") LocalDateTime newThreshold,
       Pageable pageable
   );
 
@@ -113,8 +168,12 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
       """)
   List<Tournament> findListByRegisteredBy(@Param("registeredBy") User registeredBy);
 
-  boolean existsByParticipantCode(String participantCode);
-  java.util.Optional<Tournament> findByParticipantCode(String participantCode);
+  @Query("SELECT CASE WHEN COUNT(t) > 0 THEN true ELSE false END " +
+         "FROM Tournament t WHERE t.shareCode.participantCode = :code")
+  boolean existsByParticipantCode(@Param("code") String participantCode);
+
+  @Query("SELECT t FROM Tournament t WHERE t.shareCode.participantCode = :code")
+  java.util.Optional<Tournament> findByParticipantCode(@Param("code") String participantCode);
 
   /**
    * 참가 신청 시 maxTeams 초과 방지용 비관적 락
@@ -124,8 +183,12 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
   @Query("SELECT t FROM Tournament t WHERE t.id = :id")
   java.util.Optional<Tournament> findByIdForUpdate(@Param("id") Long id);
 
-  boolean existsByStaffCode(String staffCode);
-  java.util.Optional<Tournament> findByStaffCode(String staffCode);
+  @Query("SELECT CASE WHEN COUNT(t) > 0 THEN true ELSE false END " +
+         "FROM Tournament t WHERE t.shareCode.staffCode = :code")
+  boolean existsByStaffCode(@Param("code") String staffCode);
+
+  @Query("SELECT t FROM Tournament t WHERE t.shareCode.staffCode = :code")
+  java.util.Optional<Tournament> findByStaffCode(@Param("code") String staffCode);
 
   boolean existsByTitleAndTournamentDateAndRegisteredBy(
       String title,

@@ -3,6 +3,7 @@ package com.futsal.tournament.application;
 import com.futsal.tournament.domain.Bracket;
 import com.futsal.tournament.domain.Gender;
 import com.futsal.tournament.domain.PlayerType;
+import com.futsal.tournament.domain.ShareCode;
 import com.futsal.tournament.domain.Tournament;
 import com.futsal.tournament.domain.TournamentType;
 import com.futsal.tournament.presentation.dto.TournamentCreateRequest;
@@ -24,8 +25,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.security.SecureRandom;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -33,8 +34,8 @@ import java.util.stream.Collectors;
 @Service
 public class TournamentService {
 
-    private static final String CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    private static final int CODE_LENGTH = 6;
+    private static final long NEW_TOURNAMENT_HOURS = 24;
+    private static final int REMAINING_TEAMS_ALERT_THRESHOLD = 4;
 
     private final TournamentRepository tournamentRepository;
     private final BracketRepository bracketRepository;
@@ -83,10 +84,11 @@ public class TournamentService {
         Boolean isExternal = request.getIsExternal() != null ? request.getIsExternal() : false;
         Boolean allowJoin = isExternal ? false : true;
 
-        // 참가 코드 생성 (내부 대회만)
-        String participantCode = null;
+        // 참가 코드 생성 (내부 대회만) — ShareCode VO가 고유성 검증 담당
+        ShareCode shareCode = null;
         if (!isExternal) {
-            participantCode = generateUniqueParticipantCode();
+            shareCode = ShareCode.generateParticipantCode(
+                code -> !tournamentRepository.existsByParticipantCode(code));
         }
 
         // 외부 대회: EXTERNAL 타입, maxTeams=0 / 내부 대회: 요청값 또는 기본값
@@ -121,7 +123,7 @@ public class TournamentService {
                 .isExternal(isExternal)
                 .externalUrl(request.getExternalUrl())
                 .allowJoin(allowJoin)
-                .participantCode(participantCode)
+                .shareCode(shareCode)
                 .registeredBy(registeredBy)
                 .build();
 
@@ -187,6 +189,7 @@ public class TournamentService {
             .map(this::toListResponse)
             .collect(Collectors.toList());
         populatePosterUrls(responses);
+        populateParticipantSummaries(responses, tournaments);
         return responses;
     }
 
@@ -196,6 +199,7 @@ public class TournamentService {
      */
     private TournamentListResponse toListResponse(Tournament t) {
         com.futsal.user.domain.User owner = t.getRegisteredBy();
+        boolean isNew = isNewTournament(t);
         return new TournamentListResponse(
             t.getId(),
             t.getTitle(),
@@ -208,7 +212,8 @@ public class TournamentService {
             t.getGender(),
             t.getPlayerType(),
             t.getIsExternal(),
-            owner != null ? owner.getVerificationStatus() : null
+            owner != null ? owner.getVerificationStatus() : null,
+            isNew
         );
     }
 
@@ -228,8 +233,20 @@ public class TournamentService {
         return toResponse(tournament, tournament.getViewCount());
     }
 
+    private LocalDateTime getNewTournamentThreshold() {
+        return LocalDateTime.now().minusHours(NEW_TOURNAMENT_HOURS);
+    }
+
+    private boolean isNewTournament(Tournament tournament) {
+        return tournament.getCreatedAt() != null
+            && tournament.getCreatedAt().isAfter(getNewTournamentThreshold());
+    }
+
     private TournamentResponse toResponse(Tournament tournament, int viewCount) {
-        return new TournamentResponse(
+        Bracket bracket = bracketRepository.findByTournamentId(tournament.getId())
+            .orElseGet(() -> Bracket.createDefault(tournament.getId()));
+
+        TournamentResponse response = new TournamentResponse(
                 tournament.getId(),
                 tournament.getTitle(),
                 tournament.getTournamentDate(),
@@ -245,9 +262,9 @@ public class TournamentService {
                 tournament.getTeamsPerGroup(),
                 tournament.getAdvanceCount(),
                 tournament.getSwissRounds(),
-                tournament.getBracketGenerated(),
-                tournament.getBracketType() != null ? tournament.getBracketType().name() : "AUTO",
-                tournament.getBracketImageUrls() != null ? tournament.getBracketImageUrls() : new ArrayList<>(),
+                bracket.isGenerated(),
+                bracket.getType().name(),
+                bracket.getImageUrls(),
                 tournament.getPosterUrls() != null ? tournament.getPosterUrls() : new ArrayList<>(),
                 tournament.getRecruitmentStatus(),
                 tournament.getRegisteredBy() != null ? tournament.getRegisteredBy().getId() : null,
@@ -257,9 +274,14 @@ public class TournamentService {
                 tournament.getCreatedAt(),
                 tournament.getIsExternal(),
                 tournament.getExternalUrl(),
+                null,
+                null,
+                null,
                 tournament.getParticipantCode(),
                 tournament.getStaffCode()
         );
+        enrichParticipantSummary(response, tournament, getConfirmedParticipantCount(tournament.getId()));
+        return response;
     }
 
     /**
@@ -301,13 +323,14 @@ public class TournamentService {
             ? recruitmentStatus : null;
 
         Page<Tournament> result = tournamentRepository.findPaged(
-            gender, playerType, status, PageRequest.of(page, size)
+            gender, playerType, status, getNewTournamentThreshold(), PageRequest.of(page, size)
         );
 
         List<TournamentListResponse> content = result.getContent().stream()
             .map(this::toListResponse)
             .collect(Collectors.toList());
         populatePosterUrls(content);
+        populateParticipantSummaries(content, result.getContent());
 
         return new TournamentPageResponse(content, result.hasNext(), result.getTotalElements());
     }
@@ -318,13 +341,14 @@ public class TournamentService {
     @Transactional(readOnly = true)
     public TournamentPageResponse searchTournaments(String keyword, int page, int size) {
         Page<Tournament> result = tournamentRepository.findPagedByKeyword(
-            keyword, PageRequest.of(page, size)
+            keyword, getNewTournamentThreshold(), PageRequest.of(page, size)
         );
 
         List<TournamentListResponse> content = result.getContent().stream()
             .map(this::toListResponse)
             .collect(Collectors.toList());
         populatePosterUrls(content);
+        populateParticipantSummaries(content, result.getContent());
 
         return new TournamentPageResponse(content, result.hasNext(), result.getTotalElements());
     }
@@ -334,9 +358,12 @@ public class TournamentService {
      */
     @Transactional(readOnly = true)
     public List<TournamentListResponse> getAllTournaments() {
-        return tournamentRepository.findListAll().stream()
+        List<Tournament> tournaments = tournamentRepository.findListAll();
+        List<TournamentListResponse> responses = tournaments.stream()
             .map(this::toListResponse)
             .collect(Collectors.toList());
+        populateParticipantSummaries(responses, tournaments);
+        return responses;
     }
 
     /**
@@ -424,38 +451,110 @@ public class TournamentService {
         }
     }
 
-    /**
-     * 고유한 참가 코드 생성
-     */
-    private String generateUniqueParticipantCode() {
-        String code;
-        do {
-            code = generateRandomCode();
-        } while (tournamentRepository.existsByParticipantCode(code));
-        return code;
+    private long getConfirmedParticipantCount(Long tournamentId) {
+        Long count = participantRepository.countByTournamentIdAndStatus(
+            tournamentId, com.futsal.tournament.domain.TournamentParticipant.ParticipantStatus.CONFIRMED
+        );
+        return count != null ? count : 0L;
     }
 
-    /**
-     * 고유한 운영진 코드 생성
-     */
-    public String generateUniqueStaffCode() {
-        String code;
-        do {
-            code = generateRandomCode();
-        } while (tournamentRepository.existsByStaffCode(code));
-        return code;
-    }
-
-    /**
-     * 랜덤 코드 생성
-     */
-    private String generateRandomCode() {
-        SecureRandom random = new SecureRandom();
-        StringBuilder code = new StringBuilder(CODE_LENGTH);
-        for (int i = 0; i < CODE_LENGTH; i++) {
-            int index = random.nextInt(CODE_CHARS.length());
-            code.append(CODE_CHARS.charAt(index));
+    private void populateParticipantSummaries(
+        List<TournamentListResponse> responses,
+        List<Tournament> tournaments
+    ) {
+        if (responses == null || responses.isEmpty() || tournaments == null || tournaments.isEmpty()) {
+            return;
         }
-        return code.toString();
+
+        List<Long> tournamentIds = tournaments.stream()
+            .map(Tournament::getId)
+            .collect(Collectors.toList());
+
+        java.util.Map<Long, Long> confirmedCountMap = participantRepository
+            .countConfirmedByTournamentIds(tournamentIds)
+            .stream()
+            .collect(Collectors.toMap(
+                row -> (Long) row[0],
+                row -> (Long) row[1]
+            ));
+
+        java.util.Map<Long, Tournament> tournamentMap = tournaments.stream()
+            .collect(Collectors.toMap(Tournament::getId, tournament -> tournament));
+
+        for (TournamentListResponse response : responses) {
+            Tournament tournament = tournamentMap.get(response.getId());
+            if (tournament == null) {
+                continue;
+            }
+            long confirmedCount = confirmedCountMap.getOrDefault(response.getId(), 0L);
+            enrichParticipantSummary(response, tournament, confirmedCount);
+        }
     }
+
+    private void enrichParticipantSummary(
+        TournamentListResponse response,
+        Tournament tournament,
+        long confirmedCount
+    ) {
+        if (tournament == null || response == null) {
+            return;
+        }
+
+        int confirmedTeamCount = Math.toIntExact(confirmedCount);
+        Integer remainingTeamCount = calculateRemainingTeamCount(tournament, confirmedTeamCount);
+
+        response.setConfirmedTeamCount(confirmedTeamCount);
+        response.setRemainingTeamCount(remainingTeamCount);
+        response.setJoinStatusLabel(buildJoinStatusLabel(tournament, confirmedTeamCount, remainingTeamCount));
+    }
+
+    private void enrichParticipantSummary(
+        TournamentResponse response,
+        Tournament tournament,
+        long confirmedCount
+    ) {
+        if (tournament == null || response == null) {
+            return;
+        }
+
+        int confirmedTeamCount = Math.toIntExact(confirmedCount);
+        Integer remainingTeamCount = calculateRemainingTeamCount(tournament, confirmedTeamCount);
+
+        response.setConfirmedTeamCount(confirmedTeamCount);
+        response.setRemainingTeamCount(remainingTeamCount);
+        response.setJoinStatusLabel(buildJoinStatusLabel(tournament, confirmedTeamCount, remainingTeamCount));
+    }
+
+    private Integer calculateRemainingTeamCount(Tournament tournament, int confirmedTeamCount) {
+        if (Boolean.TRUE.equals(tournament.getIsExternal()) || tournament.getMaxTeams() == null) {
+            return null;
+        }
+
+        return Math.max(0, tournament.getMaxTeams() - confirmedTeamCount);
+    }
+
+    private String buildJoinStatusLabel(
+        Tournament tournament,
+        int confirmedTeamCount,
+        Integer remainingTeamCount
+    ) {
+        if (Boolean.TRUE.equals(tournament.getIsExternal())) {
+            return null;
+        }
+        if (!"OPEN".equalsIgnoreCase(tournament.getRecruitmentStatus())) {
+            return null;
+        }
+        if (remainingTeamCount == null || remainingTeamCount <= 0) {
+            return null;
+        }
+        if (remainingTeamCount <= REMAINING_TEAMS_ALERT_THRESHOLD) {
+            return remainingTeamCount + "팀 남음";
+        }
+        if (tournament.getMaxTeams() != null
+            && confirmedTeamCount >= (int) Math.ceil(tournament.getMaxTeams() / 2.0)) {
+            return "모집 마감 임박";
+        }
+        return null;
+    }
+
 }

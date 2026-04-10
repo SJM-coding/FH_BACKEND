@@ -47,7 +47,10 @@ public class BracketGeneratorService {
             throw new RuntimeException("외부 대회는 이미지 대진표만 등록할 수 있습니다.");
         }
 
-        if (tournament.getBracketGenerated()) {
+        Bracket bracket = bracketRepository.findByTournamentId(tournamentId)
+            .orElseGet(() -> Bracket.createDefault(tournamentId));
+
+        if (bracket.isGenerated()) {
             throw new RuntimeException("이미 대진표가 생성된 대회입니다.");
         }
 
@@ -82,13 +85,6 @@ public class BracketGeneratorService {
                 throw new RuntimeException("외부 대회는 자동 대진표 생성이 불가능합니다.");
         }
 
-        // Tournament 자신의 상태 변경
-        tournament.markBracketGenerated();
-        tournamentRepository.save(tournament);
-
-        // Bracket Aggregate 업데이트 (dual write)
-        Bracket bracket = bracketRepository.findByTournamentId(tournamentId)
-            .orElseGet(() -> Bracket.createDefault(tournamentId));
         bracket.markGenerated();
         bracketRepository.save(bracket);
 
