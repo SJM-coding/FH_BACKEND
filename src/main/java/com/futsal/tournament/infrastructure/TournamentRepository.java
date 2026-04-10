@@ -35,8 +35,30 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
         AND (:recruitmentStatus IS NULL OR t.recruitmentStatus = :recruitmentStatus)
       ORDER BY
           CASE
-              WHEN t.createdAt >= :newThreshold THEN 0
-              ELSE 1
+              WHEN t.isExternal = false
+               AND t.recruitmentStatus = 'OPEN'
+               AND t.maxTeams > 0
+               AND (
+                   t.maxTeams - (
+                       SELECT COUNT(p)
+                       FROM TournamentParticipant p
+                       WHERE p.tournamentId = t.id
+                         AND p.status = 'CONFIRMED'
+                   )
+               ) BETWEEN 1 AND 4 THEN 0
+              WHEN t.isExternal = false
+               AND t.recruitmentStatus = 'OPEN'
+               AND t.maxTeams > 0
+               AND (
+                   SELECT COUNT(p)
+                   FROM TournamentParticipant p
+                   WHERE p.tournamentId = t.id
+                     AND p.status = 'CONFIRMED'
+               ) >= (t.maxTeams + 1) / 2 THEN 1
+              WHEN t.isExternal = false
+               AND t.recruitmentStatus = 'OPEN'
+               AND t.createdAt >= :newThreshold THEN 2
+              ELSE 3
           END ASC,
           CASE
               WHEN t.tournamentDate = CURRENT_DATE THEN 0
@@ -72,8 +94,30 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
          OR t.location LIKE CONCAT('%', :keyword, '%')
       ORDER BY
           CASE
-              WHEN t.createdAt >= :newThreshold THEN 0
-              ELSE 1
+              WHEN t.isExternal = false
+               AND t.recruitmentStatus = 'OPEN'
+               AND t.maxTeams > 0
+               AND (
+                   t.maxTeams - (
+                       SELECT COUNT(p)
+                       FROM TournamentParticipant p
+                       WHERE p.tournamentId = t.id
+                         AND p.status = 'CONFIRMED'
+                   )
+               ) BETWEEN 1 AND 4 THEN 0
+              WHEN t.isExternal = false
+               AND t.recruitmentStatus = 'OPEN'
+               AND t.maxTeams > 0
+               AND (
+                   SELECT COUNT(p)
+                   FROM TournamentParticipant p
+                   WHERE p.tournamentId = t.id
+                     AND p.status = 'CONFIRMED'
+               ) >= (t.maxTeams + 1) / 2 THEN 1
+              WHEN t.isExternal = false
+               AND t.recruitmentStatus = 'OPEN'
+               AND t.createdAt >= :newThreshold THEN 2
+              ELSE 3
           END ASC,
           CASE
               WHEN t.tournamentDate = CURRENT_DATE THEN 0

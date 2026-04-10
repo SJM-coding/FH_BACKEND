@@ -40,6 +40,16 @@ public interface TournamentParticipantRepository extends JpaRepository<Tournamen
     Long countByTournamentIdAndStatus(Long tournamentId, TournamentParticipant.ParticipantStatus status);
 
     /**
+     * 대회별 확정 참가팀 수 일괄 조회
+     */
+    @Query("SELECT p.tournamentId, COUNT(p) " +
+           "FROM TournamentParticipant p " +
+           "WHERE p.tournamentId IN :tournamentIds " +
+           "AND p.status = 'CONFIRMED' " +
+           "GROUP BY p.tournamentId")
+    List<Object[]> countConfirmedByTournamentIds(@Param("tournamentIds") List<Long> tournamentIds);
+
+    /**
      * 사용자가 등록한 팀 목록 조회
      */
     @Query("SELECT p FROM TournamentParticipant p " +

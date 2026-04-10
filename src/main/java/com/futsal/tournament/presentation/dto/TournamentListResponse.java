@@ -25,6 +25,9 @@ public class TournamentListResponse {
     private Boolean isExternal;
     private Boolean organizerVerified; // 인증된 개최자 여부
     private Boolean isNew;
+    private Integer confirmedTeamCount;
+    private Integer remainingTeamCount;
+    private String joinStatusLabel;
 
     public TournamentListResponse(Long id, String title, LocalDate tournamentDate, String location,
                                    String recruitmentStatus, String posterUrl, String registeredByName,
