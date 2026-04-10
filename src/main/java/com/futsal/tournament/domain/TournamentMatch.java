@@ -114,6 +114,12 @@ public class TournamentMatch {
     private String venueName;
 
     /**
+     * 분리 토너먼트 구분: UPPER(상위), LOWER(하위), null(조별리그/단일 토너먼트)
+     */
+    @Column(name = "bracket_phase", length = 10)
+    private String bracketPhase;
+
+    /**
      * 경기 시작 시간
      */
     @Column

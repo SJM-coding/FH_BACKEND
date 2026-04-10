@@ -145,9 +145,11 @@ public class BracketCommandService {
     Tournament tournament = findTournament(tournamentId);
     verifyOwner(tournament, user);
 
+    Bracket bracket = bracketRepository.findByTournamentId(tournamentId)
+        .orElseGet(() -> Bracket.createDefault(tournamentId));
+
     // 기존 자동 생성 데이터 삭제
-    if (!tournament.isManualBracket()
-        && Boolean.TRUE.equals(tournament.getBracketGenerated())) {
+    if (!bracket.isManual() && bracket.isGenerated()) {
       log.info("기존 자동 생성 대진표 삭제: tournamentId={}", tournamentId);
       matchRepository.deleteByTournamentId(tournamentId);
     }
@@ -157,13 +159,6 @@ public class BracketCommandService {
       imageUrls.add(s3Service.uploadBracketImage(file));
     }
 
-    // Tournament 필드 업데이트 (하위 호환)
-    tournament.switchToManualBracket(imageUrls);
-    tournamentRepository.save(tournament);
-
-    // Bracket Aggregate 업데이트 (dual write)
-    Bracket bracket = bracketRepository.findByTournamentId(tournamentId)
-        .orElseGet(() -> Bracket.createDefault(tournamentId));
     bracket.switchToManual(imageUrls);
     bracketRepository.save(bracket);
 
@@ -189,11 +184,6 @@ public class BracketCommandService {
     Tournament tournament = findTournament(tournamentId);
     verifyOwner(tournament, user);
 
-    // Tournament 필드 업데이트 (하위 호환)
-    tournament.switchToAutoBracket();
-    tournamentRepository.save(tournament);
-
-    // Bracket Aggregate 업데이트 (dual write)
     bracketRepository.findByTournamentId(tournamentId).ifPresent(bracket -> {
       bracket.switchToAuto();
       bracketRepository.save(bracket);
@@ -310,8 +300,9 @@ public class BracketCommandService {
     if (tournament.getTournamentType() != TournamentType.GROUP_STAGE) {
       throw new RuntimeException("조별리그 결선 토너먼트에서만 사용할 수 있습니다.");
     }
-    if (!Boolean.TRUE.equals(tournament.getBracketGenerated())
-        || tournament.isManualBracket()) {
+    Bracket bracket = bracketRepository.findByTournamentId(tournamentId)
+        .orElseThrow(() -> new RuntimeException("대진표 정보를 찾을 수 없습니다."));
+    if (!bracket.isGenerated() || bracket.isManual()) {
       throw new RuntimeException("자동 생성된 대진표에서만 사용할 수 있습니다.");
     }
 
