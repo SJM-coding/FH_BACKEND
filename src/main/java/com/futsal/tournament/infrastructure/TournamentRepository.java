@@ -16,6 +16,7 @@ import org.springframework.stereotype.Repository;
 import jakarta.persistence.LockModeType;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -33,6 +34,10 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
         AND (:playerType IS NULL OR t.playerType = :playerType)
         AND (:recruitmentStatus IS NULL OR t.recruitmentStatus = :recruitmentStatus)
       ORDER BY
+          CASE
+              WHEN t.createdAt >= :newThreshold THEN 0
+              ELSE 1
+          END ASC,
           CASE
               WHEN t.tournamentDate = CURRENT_DATE THEN 0
               WHEN t.recruitmentStatus = 'OPEN'    THEN 1
@@ -52,6 +57,7 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
       @Param("gender") Gender gender,
       @Param("playerType") PlayerType playerType,
       @Param("recruitmentStatus") String recruitmentStatus,
+      @Param("newThreshold") LocalDateTime newThreshold,
       Pageable pageable
   );
 
@@ -65,6 +71,10 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
       WHERE t.title LIKE CONCAT('%', :keyword, '%')
          OR t.location LIKE CONCAT('%', :keyword, '%')
       ORDER BY
+          CASE
+              WHEN t.createdAt >= :newThreshold THEN 0
+              ELSE 1
+          END ASC,
           CASE
               WHEN t.tournamentDate = CURRENT_DATE THEN 0
               WHEN t.recruitmentStatus = 'OPEN'    THEN 1
@@ -81,6 +91,7 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
       """)
   Page<Tournament> findPagedByKeyword(
       @Param("keyword") String keyword,
+      @Param("newThreshold") LocalDateTime newThreshold,
       Pageable pageable
   );
 

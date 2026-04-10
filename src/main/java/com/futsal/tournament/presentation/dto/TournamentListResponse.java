@@ -24,11 +24,13 @@ public class TournamentListResponse {
     private PlayerType playerType;
     private Boolean isExternal;
     private Boolean organizerVerified; // 인증된 개최자 여부
+    private Boolean isNew;
 
     public TournamentListResponse(Long id, String title, LocalDate tournamentDate, String location,
                                    String recruitmentStatus, String posterUrl, String registeredByName,
                                    String registeredByProfileImage, Gender gender, PlayerType playerType,
-                                   Boolean isExternal, VerificationStatus verificationStatus) {
+                                   Boolean isExternal, VerificationStatus verificationStatus,
+                                   Boolean isNew) {
         this.id = id;
         this.title = title;
         this.tournamentDate = tournamentDate;
@@ -41,5 +43,6 @@ public class TournamentListResponse {
         this.playerType = playerType;
         this.isExternal = isExternal;
         this.organizerVerified = verificationStatus == VerificationStatus.VERIFIED;
+        this.isNew = isNew;
     }
 }

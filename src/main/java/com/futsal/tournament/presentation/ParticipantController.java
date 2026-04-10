@@ -168,7 +168,8 @@ public class ParticipantController {
                         t.getGender(),
                         t.getPlayerType(),
                         t.getIsExternal(),
-                        t.getRegisteredBy() != null ? t.getRegisteredBy().getVerificationStatus() : null
+                        t.getRegisteredBy() != null ? t.getRegisteredBy().getVerificationStatus() : null,
+                        false
                 ))
                 .collect(Collectors.toList());
         return ResponseEntity.ok(responses);

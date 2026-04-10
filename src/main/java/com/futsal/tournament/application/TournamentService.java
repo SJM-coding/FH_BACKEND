@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -35,6 +36,7 @@ public class TournamentService {
 
     private static final String CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     private static final int CODE_LENGTH = 6;
+    private static final long NEW_TOURNAMENT_HOURS = 24;
 
     private final TournamentRepository tournamentRepository;
     private final BracketRepository bracketRepository;
@@ -196,6 +198,7 @@ public class TournamentService {
      */
     private TournamentListResponse toListResponse(Tournament t) {
         com.futsal.user.domain.User owner = t.getRegisteredBy();
+        boolean isNew = isNewTournament(t);
         return new TournamentListResponse(
             t.getId(),
             t.getTitle(),
@@ -208,7 +211,8 @@ public class TournamentService {
             t.getGender(),
             t.getPlayerType(),
             t.getIsExternal(),
-            owner != null ? owner.getVerificationStatus() : null
+            owner != null ? owner.getVerificationStatus() : null,
+            isNew
         );
     }
 
@@ -226,6 +230,15 @@ public class TournamentService {
 
     private TournamentResponse toResponse(Tournament tournament) {
         return toResponse(tournament, tournament.getViewCount());
+    }
+
+    private LocalDateTime getNewTournamentThreshold() {
+        return LocalDateTime.now().minusHours(NEW_TOURNAMENT_HOURS);
+    }
+
+    private boolean isNewTournament(Tournament tournament) {
+        return tournament.getCreatedAt() != null
+            && tournament.getCreatedAt().isAfter(getNewTournamentThreshold());
     }
 
     private TournamentResponse toResponse(Tournament tournament, int viewCount) {
@@ -301,7 +314,7 @@ public class TournamentService {
             ? recruitmentStatus : null;
 
         Page<Tournament> result = tournamentRepository.findPaged(
-            gender, playerType, status, PageRequest.of(page, size)
+            gender, playerType, status, getNewTournamentThreshold(), PageRequest.of(page, size)
         );
 
         List<TournamentListResponse> content = result.getContent().stream()
@@ -318,7 +331,7 @@ public class TournamentService {
     @Transactional(readOnly = true)
     public TournamentPageResponse searchTournaments(String keyword, int page, int size) {
         Page<Tournament> result = tournamentRepository.findPagedByKeyword(
-            keyword, PageRequest.of(page, size)
+            keyword, getNewTournamentThreshold(), PageRequest.of(page, size)
         );
 
         List<TournamentListResponse> content = result.getContent().stream()
