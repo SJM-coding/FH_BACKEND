@@ -168,8 +168,12 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
       """)
   List<Tournament> findListByRegisteredBy(@Param("registeredBy") User registeredBy);
 
-  boolean existsByParticipantCode(String participantCode);
-  java.util.Optional<Tournament> findByParticipantCode(String participantCode);
+  @Query("SELECT CASE WHEN COUNT(t) > 0 THEN true ELSE false END " +
+         "FROM Tournament t WHERE t.shareCode.participantCode = :code")
+  boolean existsByParticipantCode(@Param("code") String participantCode);
+
+  @Query("SELECT t FROM Tournament t WHERE t.shareCode.participantCode = :code")
+  java.util.Optional<Tournament> findByParticipantCode(@Param("code") String participantCode);
 
   /**
    * 참가 신청 시 maxTeams 초과 방지용 비관적 락
@@ -179,8 +183,12 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
   @Query("SELECT t FROM Tournament t WHERE t.id = :id")
   java.util.Optional<Tournament> findByIdForUpdate(@Param("id") Long id);
 
-  boolean existsByStaffCode(String staffCode);
-  java.util.Optional<Tournament> findByStaffCode(String staffCode);
+  @Query("SELECT CASE WHEN COUNT(t) > 0 THEN true ELSE false END " +
+         "FROM Tournament t WHERE t.shareCode.staffCode = :code")
+  boolean existsByStaffCode(@Param("code") String staffCode);
+
+  @Query("SELECT t FROM Tournament t WHERE t.shareCode.staffCode = :code")
+  java.util.Optional<Tournament> findByStaffCode(@Param("code") String staffCode);
 
   boolean existsByTitleAndTournamentDateAndRegisteredBy(
       String title,
