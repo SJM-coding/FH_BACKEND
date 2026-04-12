@@ -130,7 +130,16 @@ public class TournamentService {
         Tournament saved = tournamentRepository.save(tournament);
 
         // Bracket Aggregate 함께 생성 (Tournament와 라이프사이클 공유)
-        bracketRepository.save(Bracket.createDefault(saved.getId()));
+        Bracket bracket = Bracket.createDefault(saved.getId());
+
+        // 조별리그 + 분리 토너먼트 설정
+        boolean isSplit = "SPLIT".equalsIgnoreCase(request.getKnockoutType());
+        if (isSplit && request.getTeamsPerGroup() != null && request.getTeamsPerGroup() > 0) {
+            int splitCount = request.getTeamsPerGroup() / 2;
+            bracket.configureSplit(splitCount);
+        }
+
+        bracketRepository.save(bracket);
 
         return toResponse(saved);
     }

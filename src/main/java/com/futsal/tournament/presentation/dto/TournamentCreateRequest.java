@@ -44,6 +44,12 @@ public class TournamentCreateRequest {
     private Integer advanceCount;  // 조별리그: 각 조당 결선 진출 팀 수
     private Integer swissRounds;
 
+    /**
+     * 조별리그 본선 방식: "SINGLE"(기본) / "SPLIT"(상위+하위 분리 토너먼트)
+     * null이면 SINGLE로 처리
+     */
+    private String knockoutType;
+
     private List<String> posterUrls; // S3 업로드 후 URL 목록
     
     private Boolean isExternal; // 외부 대회 여부

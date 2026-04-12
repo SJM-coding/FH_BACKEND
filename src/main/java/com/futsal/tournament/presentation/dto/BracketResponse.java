@@ -49,7 +49,7 @@ public class BracketResponse {
     private Boolean knockoutGenerated;
 
     /**
-     * 라운드별 경기 목록
+     * 라운드별 경기 목록 (단일 토너먼트 / 조별리그 결선)
      */
     private List<RoundMatches> rounds;
 
@@ -57,6 +57,23 @@ public class BracketResponse {
      * 조별리그인 경우 그룹 정보
      */
     private List<GroupInfo> groups;
+
+    // ── 분리 토너먼트 (SPLIT bracket) ─────────────────────────────────
+
+    /** 분리 토너먼트 여부 */
+    private Boolean splitBracket;
+
+    /** 상위 토너먼트 라운드별 경기 */
+    private List<RoundMatches> upperRounds;
+
+    /** 하위 토너먼트 라운드별 경기 */
+    private List<RoundMatches> lowerRounds;
+
+    /** play-in 경기 (상위) */
+    private MatchResponse upperPlayInMatch;
+
+    /** play-in 경기 (하위) */
+    private MatchResponse lowerPlayInMatch;
 
     @Data
     @Builder

@@ -1,6 +1,5 @@
 package com.futsal.tournament.application;
 
-import com.futsal.shared.infrastructure.S3Service;
 import com.futsal.team.domain.Team;
 import com.futsal.team.infrastructure.TeamRepository;
 import com.futsal.tournament.domain.*;
@@ -14,14 +13,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
 /**
  * 대진표 write 서비스
- * 일정 등록, 결과 입력, 이미지 업로드, 진출팀 배정 등 C,U,D 작업
+ * 경기 일정 관리, 결과 입력, 진출팀 배정, 결선 재배치 담당
+ * - 이미지 관리: BracketImageService
+ * - 분리 토너먼트: SplitBracketService
  */
 @Slf4j
 @Service
@@ -32,7 +32,6 @@ public class BracketCommandService {
   private final TournamentMatchRepository matchRepository;
   private final TournamentGroupRepository groupRepository;
   private final TeamRepository teamRepository;
-  private final S3Service s3Service;
   private final BracketQueryService bracketQueryService;
   private final BracketRepository bracketRepository;
 
@@ -124,72 +123,19 @@ public class BracketCommandService {
       advanceWinnerToNextRound(match);
     } else if (tournament.getTournamentType() == TournamentType.GROUP_STAGE) {
       if (match.getGroupId() != null) {
-        checkAndGenerateKnockoutBracket(tournament);
+        // 조별리그 경기 완료: 분리 토너먼트면 자동 배정 안 함(운영진이 배정)
+        Bracket bracket = bracketRepository.findByTournamentId(tournamentId)
+            .orElseGet(() -> Bracket.createDefault(tournamentId));
+        if (!bracket.isSplit()) {
+          checkAndGenerateKnockoutBracket(tournament);
+        }
       } else {
+        // 결선(단일) 또는 분리 토너먼트 경기
         advanceWinnerToNextRound(match);
       }
     }
 
     return MatchResponse.from(match);
-  }
-
-  // ── 대진표 이미지 ──────────────────────────────────────────────────
-
-  /**
-   * 대진표 이미지 업로드 (수동 대진표로 전환)
-   */
-  @Transactional
-  public BracketResponse uploadBracketImages(
-      Long tournamentId, List<MultipartFile> files, User user) {
-
-    Tournament tournament = findTournament(tournamentId);
-    verifyOwner(tournament, user);
-
-    Bracket bracket = bracketRepository.findByTournamentId(tournamentId)
-        .orElseGet(() -> Bracket.createDefault(tournamentId));
-
-    // 기존 자동 생성 데이터 삭제
-    if (!bracket.isManual() && bracket.isGenerated()) {
-      log.info("기존 자동 생성 대진표 삭제: tournamentId={}", tournamentId);
-      matchRepository.deleteByTournamentId(tournamentId);
-    }
-
-    List<String> imageUrls = new ArrayList<>();
-    for (MultipartFile file : files) {
-      imageUrls.add(s3Service.uploadBracketImage(file));
-    }
-
-    bracket.switchToManual(imageUrls);
-    bracketRepository.save(bracket);
-
-    log.info("대진표 이미지 업로드 완료: tournamentId={}, imageCount={}",
-        tournamentId, imageUrls.size());
-
-    return BracketResponse.builder()
-        .tournamentId(tournament.getId())
-        .tournamentTitle(tournament.getTitle())
-        .tournamentType(tournament.getTournamentType() != null
-            ? tournament.getTournamentType().name() : null)
-        .bracketType(BracketType.MANUAL.name())
-        .bracketGenerated(true)
-        .bracketImageUrls(imageUrls)
-        .build();
-  }
-
-  /**
-   * 대진표 이미지 삭제 (자동 생성 모드로 전환)
-   */
-  @Transactional
-  public void clearBracketImages(Long tournamentId, User user) {
-    Tournament tournament = findTournament(tournamentId);
-    verifyOwner(tournament, user);
-
-    bracketRepository.findByTournamentId(tournamentId).ifPresent(bracket -> {
-      bracket.switchToAuto();
-      bracketRepository.save(bracket);
-    });
-
-    log.info("대진표 이미지 삭제 완료, AUTO 모드로 전환: tournamentId={}", tournamentId);
   }
 
   // ── 진출팀 선택 ────────────────────────────────────────────────────
@@ -420,11 +366,35 @@ public class BracketCommandService {
     }
 
     int nextRound = match.getRound() + 1;
+    String phase = match.getBracketPhase();
+
+    List<TournamentMatch> nextMatches = matchRepository
+        .findByTournamentIdAndRound(match.getTournamentId(), nextRound)
+        .stream()
+        .filter(m -> java.util.Objects.equals(m.getBracketPhase(), phase))
+        .collect(Collectors.toList());
+
+    // play-in 경기 (round=2, bracketPhase != null): TBD 슬롯에 승자 배정
+    boolean isPlayIn = (match.getRound() == 2 && phase != null);
+    if (isPlayIn) {
+      nextMatches.stream()
+          .filter(m -> m.getTeam1Id() == null || m.getTeam2Id() == null)
+          .findFirst()
+          .ifPresent(next -> {
+            if (next.getTeam1Id() == null) {
+              match.advanceWinnerAsTeam1(next);
+            } else {
+              match.advanceWinnerAsTeam2(next);
+            }
+            matchRepository.save(next);
+            log.info("play-in 승자 진출: {}팀 -> {}라운드 {}경기 ({})",
+                match.getWinnerName(), nextRound, next.getMatchNumber(), phase);
+          });
+      return; // play-in에는 3,4위전 없음
+    }
+
+    // 일반 토너먼트 라운드 진행
     int nextMatchNumber = (match.getMatchNumber() + 1) / 2;
-
-    List<TournamentMatch> nextMatches = matchRepository.findByTournamentIdAndRound(
-        match.getTournamentId(), nextRound);
-
     nextMatches.stream()
         .filter(m -> m.getMatchNumber() == nextMatchNumber)
         .findFirst()
@@ -439,20 +409,27 @@ public class BracketCommandService {
               match.getWinnerName(), nextRound, nextMatchNumber);
         });
 
-    assignLoserToThirdPlaceMatch(match, nextRound);
+    assignLoserToThirdPlaceMatch(match, nextRound, phase);
   }
 
-  private void assignLoserToThirdPlaceMatch(TournamentMatch match, int nextRound) {
+  private void assignLoserToThirdPlaceMatch(
+      TournamentMatch match, int nextRound, String phase) {
     if (match.getLoserId() == null) return;
 
     List<TournamentMatch> currentRoundMatches =
         matchRepository.findByTournamentIdAndRound(
-            match.getTournamentId(), match.getRound());
+            match.getTournamentId(), match.getRound())
+        .stream()
+        .filter(m -> java.util.Objects.equals(m.getBracketPhase(), phase))
+        .collect(Collectors.toList());
     if (currentRoundMatches.size() != 2) return;
 
     List<TournamentMatch> nextRoundMatches =
         matchRepository.findByTournamentIdAndRound(
-            match.getTournamentId(), nextRound);
+            match.getTournamentId(), nextRound)
+        .stream()
+        .filter(m -> java.util.Objects.equals(m.getBracketPhase(), phase))
+        .collect(Collectors.toList());
     if (nextRoundMatches.size() < 2) return;
 
     nextRoundMatches.stream()
