@@ -33,6 +33,7 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
       WHERE (:gender IS NULL OR t.gender = :gender)
         AND (:playerType IS NULL OR t.playerType = :playerType)
         AND (:recruitmentStatus IS NULL OR t.recruitmentStatus = :recruitmentStatus)
+        AND t.tournamentDate >= CURRENT_DATE
       ORDER BY
           CASE
               WHEN t.isExternal = false
@@ -74,6 +75,7 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
       WHERE (:gender IS NULL OR t.gender = :gender)
         AND (:playerType IS NULL OR t.playerType = :playerType)
         AND (:recruitmentStatus IS NULL OR t.recruitmentStatus = :recruitmentStatus)
+        AND t.tournamentDate >= CURRENT_DATE
       """)
   Page<Tournament> findPaged(
       @Param("gender") Gender gender,
