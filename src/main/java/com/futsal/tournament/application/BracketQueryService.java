@@ -102,6 +102,8 @@ public class BracketQueryService {
           buildSingleEliminationBracket(builder, allMatches);
       case GROUP_STAGE ->
           buildGroupStageBracket(builder, tournament, allMatches);
+      case SPLIT_STAGE ->
+          buildSplitBracket(builder, tournament, allMatches);
       case SWISS_SYSTEM ->
           buildSwissSystemBracket(builder, allMatches);
       default -> throw new RuntimeException("지원하지 않는 대회 유형입니다.");
@@ -227,6 +229,137 @@ public class BracketQueryService {
             allGroupsCompleted && anyGroupHasTie && !knockoutTeamsAssigned)
         .knockoutGenerated(knockoutTeamsAssigned)
         .build();
+  }
+
+  /**
+   * 분리 토너먼트 대진표 응답 조립
+   * - groups: 조별리그 순위표 (조회용)
+   * - upperRounds / lowerRounds: 각 phase의 knockout 라운드
+   * - upperPlayInMatch / lowerPlayInMatch: round=2 play-in 경기
+   */
+  private BracketResponse buildSplitBracket(
+      BracketResponse.BracketResponseBuilder builder,
+      Tournament tournament,
+      List<TournamentMatch> allMatches) {
+
+    log.info("분리 토너먼트 대진표 구성: tournamentId={}", tournament.getId());
+
+    // splitRank: 조별 상위/하위 경계 (teamsPerGroup / 2)
+    Integer teamsPerGroupVal = tournament.getTeamsPerGroup();
+    int splitRank = (teamsPerGroupVal != null && teamsPerGroupVal > 0)
+        ? teamsPerGroupVal / 2 : 0;
+
+    // 조별리그 순위표
+    List<TournamentGroup> groups =
+        groupRepository.findByTournamentIdWithTeams(tournament.getId());
+    List<BracketResponse.GroupInfo> groupInfos = new ArrayList<>();
+    boolean allGroupsCompleted = true;
+    boolean anyGroupHasTie = false;
+
+    for (TournamentGroup group : groups) {
+      List<TournamentMatch> groupMatches = allMatches.stream()
+          .filter(m -> group.getGroupName().equals(m.getGroupId()))
+          .collect(Collectors.toList());
+      List<BracketResponse.TeamStanding> standings =
+          calculateStandings(group, groupMatches);
+      boolean groupCompleted =
+          groupMatches.stream().allMatch(TournamentMatch::isFinished);
+      if (!groupCompleted) allGroupsCompleted = false;
+
+      // 상위/하위 경계선(splitRank번째 vs splitRank+1번째) 동점 감지
+      boolean hasTie = false;
+      List<Long> tiedTeamIds = new ArrayList<>();
+      if (groupCompleted && splitRank > 0 && standings.size() > splitRank) {
+        int upperBorderPts = standings.get(splitRank - 1).getPoints();
+        int lowerBorderPts = standings.get(splitRank).getPoints();
+        if (upperBorderPts == lowerBorderPts) {
+          hasTie = true;
+          anyGroupHasTie = true;
+          // 같은 승점인 팀 전부 tiedTeamIds에 포함
+          for (BracketResponse.TeamStanding s : standings) {
+            if (s.getPoints() == upperBorderPts) {
+              tiedTeamIds.add(s.getTeamId());
+            }
+          }
+        }
+      }
+
+      groupInfos.add(BracketResponse.GroupInfo.builder()
+          .groupName(group.getGroupName())
+          .standings(standings)
+          .matches(groupMatches.stream()
+              .map(MatchResponse::from).collect(Collectors.toList()))
+          .groupCompleted(groupCompleted)
+          .hasTie(hasTie)
+          .tiedTeamIds(tiedTeamIds)
+          .build());
+    }
+
+    // UPPER / LOWER 경기 분리
+    List<TournamentMatch> upperAll = allMatches.stream()
+        .filter(m -> "UPPER".equals(m.getBracketPhase()))
+        .collect(Collectors.toList());
+    List<TournamentMatch> lowerAll = allMatches.stream()
+        .filter(m -> "LOWER".equals(m.getBracketPhase()))
+        .collect(Collectors.toList());
+
+    // play-in (round=2)
+    MatchResponse upperPlayIn = upperAll.stream()
+        .filter(m -> m.getRound() == 2)
+        .findFirst()
+        .map(MatchResponse::from)
+        .orElse(null);
+    MatchResponse lowerPlayIn = lowerAll.stream()
+        .filter(m -> m.getRound() == 2)
+        .findFirst()
+        .map(MatchResponse::from)
+        .orElse(null);
+
+    // knockout 라운드 (round >= 3)
+    List<BracketResponse.RoundMatches> upperRounds =
+        buildPhaseRounds(upperAll.stream()
+            .filter(m -> m.getRound() >= 3).collect(Collectors.toList()));
+    List<BracketResponse.RoundMatches> lowerRounds =
+        buildPhaseRounds(lowerAll.stream()
+            .filter(m -> m.getRound() >= 3).collect(Collectors.toList()));
+
+    boolean splitGenerated = !upperAll.isEmpty() || !lowerAll.isEmpty();
+
+    return builder
+        .groups(groupInfos)
+        .groupStageCompleted(allGroupsCompleted)
+        .splitBracket(true)
+        .knockoutGenerated(splitGenerated)
+        .upperRounds(upperRounds)
+        .lowerRounds(lowerRounds)
+        .upperPlayInMatch(upperPlayIn)
+        .lowerPlayInMatch(lowerPlayIn)
+        .build();
+  }
+
+  /** phase 내 라운드별 경기 목록 조립 */
+  private List<BracketResponse.RoundMatches> buildPhaseRounds(
+      List<TournamentMatch> matches) {
+
+    Map<Integer, List<TournamentMatch>> byRound = matches.stream()
+        .collect(Collectors.groupingBy(TournamentMatch::getRound));
+    if (byRound.isEmpty()) return Collections.emptyList();
+
+    int maxRound = byRound.keySet().stream().max(Integer::compareTo).orElse(0);
+    List<BracketResponse.RoundMatches> rounds = new ArrayList<>();
+
+    for (int round = byRound.keySet().stream().min(Integer::compareTo).orElse(3);
+         round <= maxRound; round++) {
+      List<TournamentMatch> roundMatches =
+          byRound.getOrDefault(round, Collections.emptyList());
+      int displayRound = round - 2; // round 3 → display 1 (8강)
+      rounds.add(BracketResponse.RoundMatches.builder()
+          .round(round)
+          .roundName(getRoundDisplayName(displayRound, maxRound - 2, roundMatches))
+          .matches(toMatchResponses(roundMatches, displayRound, maxRound - 2))
+          .build());
+    }
+    return rounds;
   }
 
   private BracketResponse buildSwissSystemBracket(

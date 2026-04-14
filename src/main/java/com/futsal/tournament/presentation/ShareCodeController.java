@@ -6,9 +6,11 @@ import com.futsal.tournament.presentation.dto.BracketResponse;
 import com.futsal.tournament.presentation.dto.MatchResponse;
 import com.futsal.tournament.presentation.dto.MatchResultRequest;
 import com.futsal.tournament.presentation.dto.QualifierSelectionRequest;
+import com.futsal.tournament.presentation.dto.SplitBracketRequest;
 import com.futsal.tournament.infrastructure.TournamentRepository;
 import com.futsal.tournament.application.BracketCommandService;
 import com.futsal.tournament.application.BracketQueryService;
+import com.futsal.tournament.application.SplitBracketService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -28,6 +30,7 @@ public class ShareCodeController {
     private final TournamentRepository tournamentRepository;
     private final BracketQueryService bracketQueryService;
     private final BracketCommandService bracketCommandService;
+    private final SplitBracketService splitBracketService;
 
     /**
      * 운영진 코드로 대회 정보 조회
@@ -126,6 +129,31 @@ public class ShareCodeController {
         try {
             BracketResponse result = bracketCommandService.selectQualifiersAndGenerateKnockoutByShareCode(
                     tournament.getId(), request);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * 분리 토너먼트 팀 배정 및 경기 생성
+     * POST /api/share/{staffCode}/split-bracket
+     */
+    @PostMapping("/{staffCode}/split-bracket")
+    public ResponseEntity<?> generateSplitBracket(
+            @PathVariable String staffCode,
+            @RequestBody SplitBracketRequest request
+    ) {
+        Tournament tournament = tournamentRepository.findByStaffCode(staffCode)
+                .orElse(null);
+
+        if (tournament == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "유효하지 않은 운영진코드입니다."));
+        }
+
+        try {
+            BracketResponse result = splitBracketService
+                    .generateSplitBracket(tournament.getId(), request);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

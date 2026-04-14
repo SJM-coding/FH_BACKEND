@@ -5,6 +5,8 @@ import com.futsal.tournament.domain.Gender;
 import com.futsal.tournament.domain.PlayerType;
 import com.futsal.tournament.domain.ShareCode;
 import com.futsal.tournament.domain.Tournament;
+import com.futsal.tournament.domain.TournamentParticipant;
+import com.futsal.tournament.domain.TournamentStructure;
 import com.futsal.tournament.domain.TournamentType;
 import com.futsal.tournament.presentation.dto.TournamentCreateRequest;
 import com.futsal.tournament.presentation.dto.TournamentListResponse;
@@ -104,6 +106,17 @@ public class TournamentService {
             maxTeams = request.getMaxTeams() != null ? request.getMaxTeams() : 16;
         }
 
+        // 대회 구조 VO 생성
+        TournamentStructure structure = TournamentStructure.builder()
+                .tournamentType(tournamentType)
+                .maxTeams(maxTeams)
+                .groupCount(request.getGroupCount())
+                .teamsPerGroup(request.getTeamsPerGroup())
+                .advanceCount(request.getAdvanceCount() != null
+                    ? request.getAdvanceCount() : 2)
+                .swissRounds(request.getSwissRounds())
+                .build();
+
         Tournament tournament = Tournament.builder()
                 .title(request.getTitle())
                 .tournamentDate(request.getTournamentDate())
@@ -112,13 +125,9 @@ public class TournamentService {
                 .gender(request.getGender())
                 .description(request.getDescription())
                 .viewCount(0)
-                .originalLink(request.getOriginalLink() != null ? request.getOriginalLink() : "")
-                .tournamentType(tournamentType)
-                .maxTeams(maxTeams)
-                .groupCount(request.getGroupCount())
-                .teamsPerGroup(request.getTeamsPerGroup())
-                .advanceCount(request.getAdvanceCount() != null ? request.getAdvanceCount() : 2)
-                .swissRounds(request.getSwissRounds())
+                .originalLink(request.getOriginalLink() != null
+                    ? request.getOriginalLink() : "")
+                .structure(structure)
                 .posterUrls(normalizePosterUrls(request.getPosterUrls()))
                 .isExternal(isExternal)
                 .externalUrl(request.getExternalUrl())
@@ -130,7 +139,8 @@ public class TournamentService {
         Tournament saved = tournamentRepository.save(tournament);
 
         // Bracket Aggregate 함께 생성 (Tournament와 라이프사이클 공유)
-        bracketRepository.save(Bracket.createDefault(saved.getId()));
+        Bracket bracket = Bracket.createDefault(saved.getId());
+        bracketRepository.save(bracket);
 
         return toResponse(saved);
     }
@@ -146,6 +156,34 @@ public class TournamentService {
         // 권한 확인
         if (!tournament.isRegisteredBy(user.getId())) {
             throw new RuntimeException("대회를 수정할 권한이 없습니다");
+        }
+
+        // 대진표 구조 변경 요청 여부 확인
+        boolean isStructureChange = request.getMaxTeams() != null
+            || request.getGroupCount() != null
+            || request.getTeamsPerGroup() != null
+            || request.getSwissRounds() != null
+            || request.getTournamentType() != null;
+
+        if (isStructureChange) {
+            Bracket bracket = bracketRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException(
+                    "대진표 정보를 찾을 수 없습니다: " + id));
+            if (bracket.isGenerated()) {
+                throw new IllegalStateException(
+                    "대진표가 이미 생성된 대회의 구조(팀 수, 조 구성, 대회 방식)는 변경할 수 없습니다.");
+            }
+        }
+
+        // maxTeams 감소 시 현재 확정된 참가 팀 수 초과 여부 체크
+        if (request.getMaxTeams() != null) {
+            long confirmedCount = participantRepository.countByTournamentIdAndStatus(
+                id, TournamentParticipant.ParticipantStatus.CONFIRMED);
+            if (request.getMaxTeams() < confirmedCount) {
+                throw new IllegalArgumentException(
+                    "최대 참가 팀 수는 현재 확정된 참가 팀 수(" + confirmedCount
+                        + "팀)보다 작을 수 없습니다.");
+            }
         }
 
         // 수정

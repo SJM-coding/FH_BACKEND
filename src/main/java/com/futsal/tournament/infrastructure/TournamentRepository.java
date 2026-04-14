@@ -38,9 +38,9 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
           CASE
               WHEN t.isExternal = false
                AND t.recruitmentStatus = 'OPEN'
-               AND t.maxTeams > 0
+               AND t.structure.maxTeams > 0
                AND (
-                   t.maxTeams - (
+                   t.structure.maxTeams - (
                        SELECT COUNT(p)
                        FROM TournamentParticipant p
                        WHERE p.tournamentId = t.id
@@ -49,13 +49,13 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
                ) BETWEEN 1 AND 4 THEN 0
               WHEN t.isExternal = false
                AND t.recruitmentStatus = 'OPEN'
-               AND t.maxTeams > 0
+               AND t.structure.maxTeams > 0
                AND (
                    SELECT COUNT(p)
                    FROM TournamentParticipant p
                    WHERE p.tournamentId = t.id
                      AND p.status = 'CONFIRMED'
-               ) >= (t.maxTeams + 1) / 2 THEN 1
+               ) >= (t.structure.maxTeams + 1) / 2 THEN 1
               WHEN t.isExternal = false
                AND t.recruitmentStatus = 'OPEN'
                AND t.createdAt >= :newThreshold THEN 2
@@ -98,9 +98,9 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
           CASE
               WHEN t.isExternal = false
                AND t.recruitmentStatus = 'OPEN'
-               AND t.maxTeams > 0
+               AND t.structure.maxTeams > 0
                AND (
-                   t.maxTeams - (
+                   t.structure.maxTeams - (
                        SELECT COUNT(p)
                        FROM TournamentParticipant p
                        WHERE p.tournamentId = t.id
@@ -109,13 +109,13 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
                ) BETWEEN 1 AND 4 THEN 0
               WHEN t.isExternal = false
                AND t.recruitmentStatus = 'OPEN'
-               AND t.maxTeams > 0
+               AND t.structure.maxTeams > 0
                AND (
                    SELECT COUNT(p)
                    FROM TournamentParticipant p
                    WHERE p.tournamentId = t.id
                      AND p.status = 'CONFIRMED'
-               ) >= (t.maxTeams + 1) / 2 THEN 1
+               ) >= (t.structure.maxTeams + 1) / 2 THEN 1
               WHEN t.isExternal = false
                AND t.recruitmentStatus = 'OPEN'
                AND t.createdAt >= :newThreshold THEN 2

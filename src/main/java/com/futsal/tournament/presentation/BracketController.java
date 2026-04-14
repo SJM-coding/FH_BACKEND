@@ -3,6 +3,7 @@ package com.futsal.tournament.presentation;
 import com.futsal.tournament.presentation.dto.*;
 import com.futsal.tournament.application.BracketCommandService;
 import com.futsal.tournament.application.BracketGeneratorService;
+import com.futsal.tournament.application.BracketImageService;
 import com.futsal.tournament.application.BracketQueryService;
 import com.futsal.user.domain.User;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ public class BracketController {
   private final BracketGeneratorService generatorService;
   private final BracketQueryService bracketQueryService;
   private final BracketCommandService bracketCommandService;
+  private final BracketImageService bracketImageService;
 
   /**
    * 대진표 생성
@@ -136,7 +138,7 @@ public class BracketController {
     }
     try {
       BracketResponse result =
-          bracketCommandService.uploadBracketImages(tournamentId, files, user);
+          bracketImageService.uploadBracketImages(tournamentId, files, user);
       return ResponseEntity.ok(result);
     } catch (Exception e) {
       return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -153,7 +155,7 @@ public class BracketController {
   ) {
     if (user == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
     try {
-      bracketCommandService.clearBracketImages(tournamentId, user);
+      bracketImageService.clearBracketImages(tournamentId, user);
       return ResponseEntity.ok(Map.of("message", "대진표 이미지가 삭제되었습니다."));
     } catch (Exception e) {
       return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

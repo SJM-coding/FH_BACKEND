@@ -62,28 +62,12 @@ public class Tournament extends AbstractAggregateRoot<Tournament> {
     @Column(nullable = false, length = 500)
     private String originalLink = ""; // 참고 링크 (선택, 빈 문자열 허용)
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
-    private TournamentType tournamentType;
-
-    @Column(nullable = false)
-    private Integer maxTeams;
-
-    @Column
-    private Integer groupCount;
-
-    @Column
-    private Integer teamsPerGroup;
-
     /**
-     * 조별리그에서 각 조당 결선 진출 팀 수 (기본값: 2)
+     * 대회 구조 VO — 형식(tournamentType)과 관련 설정을 하나의 개념 단위로 묶음.
+     * 컬럼은 기존 tournaments 테이블 컬럼과 동일하므로 스키마 변경 없음.
      */
-    @Column
-    @Builder.Default
-    private Integer advanceCount = 2;
-
-    @Column
-    private Integer swissRounds;
+    @Embedded
+    private TournamentStructure structure;
 
     @Column(columnDefinition = "JSON")
     @Convert(converter = StringListConverter.class)
@@ -210,12 +194,77 @@ public class Tournament extends AbstractAggregateRoot<Tournament> {
             && "OPEN".equalsIgnoreCase(this.recruitmentStatus);
     }
 
+    // ── TournamentStructure 위임 접근자 (기존 호출 코드 호환) ─────────
+
+    public TournamentType getTournamentType() {
+        return structure != null ? structure.getTournamentType() : null;
+    }
+
+    public void setTournamentType(TournamentType type) {
+        ensureStructure();
+        structure.setTournamentType(type);
+    }
+
+    public Integer getMaxTeams() {
+        return structure != null ? structure.getMaxTeams() : null;
+    }
+
+    public void setMaxTeams(Integer maxTeams) {
+        ensureStructure();
+        structure.setMaxTeams(maxTeams);
+    }
+
+    public Integer getGroupCount() {
+        return structure != null ? structure.getGroupCount() : null;
+    }
+
+    public void setGroupCount(Integer groupCount) {
+        ensureStructure();
+        structure.setGroupCount(groupCount);
+    }
+
+    public Integer getTeamsPerGroup() {
+        return structure != null ? structure.getTeamsPerGroup() : null;
+    }
+
+    public void setTeamsPerGroup(Integer teamsPerGroup) {
+        ensureStructure();
+        structure.setTeamsPerGroup(teamsPerGroup);
+    }
+
+    public Integer getAdvanceCount() {
+        return structure != null && structure.getAdvanceCount() != null
+            ? structure.getAdvanceCount() : 2;
+    }
+
+    public void setAdvanceCount(Integer advanceCount) {
+        ensureStructure();
+        structure.setAdvanceCount(advanceCount);
+    }
+
+    public Integer getSwissRounds() {
+        return structure != null ? structure.getSwissRounds() : null;
+    }
+
+    public void setSwissRounds(Integer swissRounds) {
+        ensureStructure();
+        structure.setSwissRounds(swissRounds);
+    }
+
+    private void ensureStructure() {
+        if (structure == null) {
+            structure = new TournamentStructure();
+        }
+    }
+
     /**
      * 결선 토너먼트 경기 여부 (경기 결과 검증 시 Application Service가 사용)
      */
     public boolean isKnockoutMatch(TournamentMatch match) {
-        return this.tournamentType == TournamentType.SINGLE_ELIMINATION
-            || (this.tournamentType == TournamentType.GROUP_STAGE
+        TournamentType type = getTournamentType();
+        return type == TournamentType.SINGLE_ELIMINATION
+            || ((type == TournamentType.GROUP_STAGE
+                    || type == TournamentType.SPLIT_STAGE)
                 && match.getGroupId() == null);
     }
 
