@@ -56,8 +56,7 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
                    WHERE p.tournamentId = t.id
                      AND p.status = 'CONFIRMED'
                ) >= (t.structure.maxTeams + 1) / 2 THEN 1
-              WHEN t.isExternal = false
-               AND t.recruitmentStatus = 'OPEN'
+              WHEN t.recruitmentStatus = 'OPEN'
                AND t.createdAt >= :newThreshold THEN 2
               ELSE 3
           END ASC,
@@ -116,8 +115,7 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
                    WHERE p.tournamentId = t.id
                      AND p.status = 'CONFIRMED'
                ) >= (t.structure.maxTeams + 1) / 2 THEN 1
-              WHEN t.isExternal = false
-               AND t.recruitmentStatus = 'OPEN'
+              WHEN t.recruitmentStatus = 'OPEN'
                AND t.createdAt >= :newThreshold THEN 2
               ELSE 3
           END ASC,
