@@ -51,16 +51,13 @@ public class SplitBracketService {
 
     Tournament tournament = findTournament(tournamentId);
 
-    if (tournament.getTournamentType() != TournamentType.GROUP_STAGE) {
+    if (tournament.getTournamentType() != TournamentType.SPLIT_STAGE) {
       throw new IllegalStateException(
-          "조별리그 대회에서만 분리 토너먼트를 설정할 수 있습니다.");
+          "풋투풋(SPLIT_STAGE) 대회에서만 분리 토너먼트를 생성할 수 있습니다.");
     }
 
     Bracket bracket = bracketRepository.findByTournamentId(tournamentId)
         .orElseThrow(() -> new RuntimeException("대진표 정보를 찾을 수 없습니다."));
-    if (!bracket.isSplit()) {
-      throw new IllegalStateException("분리 토너먼트로 설정된 대회가 아닙니다.");
-    }
 
     // 조별리그 경기 전체 완료 여부 검증
     List<TournamentMatch> allMatches =

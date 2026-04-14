@@ -6,6 +6,7 @@ import com.futsal.tournament.domain.PlayerType;
 import com.futsal.tournament.domain.ShareCode;
 import com.futsal.tournament.domain.Tournament;
 import com.futsal.tournament.domain.TournamentParticipant;
+import com.futsal.tournament.domain.TournamentStructure;
 import com.futsal.tournament.domain.TournamentType;
 import com.futsal.tournament.presentation.dto.TournamentCreateRequest;
 import com.futsal.tournament.presentation.dto.TournamentListResponse;
@@ -105,6 +106,17 @@ public class TournamentService {
             maxTeams = request.getMaxTeams() != null ? request.getMaxTeams() : 16;
         }
 
+        // 대회 구조 VO 생성
+        TournamentStructure structure = TournamentStructure.builder()
+                .tournamentType(tournamentType)
+                .maxTeams(maxTeams)
+                .groupCount(request.getGroupCount())
+                .teamsPerGroup(request.getTeamsPerGroup())
+                .advanceCount(request.getAdvanceCount() != null
+                    ? request.getAdvanceCount() : 2)
+                .swissRounds(request.getSwissRounds())
+                .build();
+
         Tournament tournament = Tournament.builder()
                 .title(request.getTitle())
                 .tournamentDate(request.getTournamentDate())
@@ -113,13 +125,9 @@ public class TournamentService {
                 .gender(request.getGender())
                 .description(request.getDescription())
                 .viewCount(0)
-                .originalLink(request.getOriginalLink() != null ? request.getOriginalLink() : "")
-                .tournamentType(tournamentType)
-                .maxTeams(maxTeams)
-                .groupCount(request.getGroupCount())
-                .teamsPerGroup(request.getTeamsPerGroup())
-                .advanceCount(request.getAdvanceCount() != null ? request.getAdvanceCount() : 2)
-                .swissRounds(request.getSwissRounds())
+                .originalLink(request.getOriginalLink() != null
+                    ? request.getOriginalLink() : "")
+                .structure(structure)
                 .posterUrls(normalizePosterUrls(request.getPosterUrls()))
                 .isExternal(isExternal)
                 .externalUrl(request.getExternalUrl())
@@ -132,14 +140,6 @@ public class TournamentService {
 
         // Bracket Aggregate 함께 생성 (Tournament와 라이프사이클 공유)
         Bracket bracket = Bracket.createDefault(saved.getId());
-
-        // 조별리그 + 분리 토너먼트 설정
-        boolean isSplit = "SPLIT".equalsIgnoreCase(request.getKnockoutType());
-        if (isSplit && request.getTeamsPerGroup() != null && request.getTeamsPerGroup() > 0) {
-            int splitCount = request.getTeamsPerGroup() / 2;
-            bracket.configureSplit(splitCount);
-        }
-
         bracketRepository.save(bracket);
 
         return toResponse(saved);

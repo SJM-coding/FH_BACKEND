@@ -123,16 +123,18 @@ public class BracketCommandService {
       advanceWinnerToNextRound(match);
     } else if (tournament.getTournamentType() == TournamentType.GROUP_STAGE) {
       if (match.getGroupId() != null) {
-        // 조별리그 경기 완료: 분리 토너먼트면 자동 배정 안 함(운영진이 배정)
-        Bracket bracket = bracketRepository.findByTournamentId(tournamentId)
-            .orElseGet(() -> Bracket.createDefault(tournamentId));
-        if (!bracket.isSplit()) {
-          checkAndGenerateKnockoutBracket(tournament);
-        }
+        // 조별리그 경기 완료: 동점 없으면 자동으로 결선 팀 배정
+        checkAndGenerateKnockoutBracket(tournament);
       } else {
-        // 결선(단일) 또는 분리 토너먼트 경기
+        // 결선 경기
         advanceWinnerToNextRound(match);
       }
+    } else if (tournament.getTournamentType() == TournamentType.SPLIT_STAGE) {
+      if (match.getGroupId() == null) {
+        // 분리 토너먼트(UPPER/LOWER) 경기 — 승자 다음 라운드 진출
+        advanceWinnerToNextRound(match);
+      }
+      // 조별리그 경기(groupId != null): 운영진이 generateSplitBracket으로 수동 확정
     }
 
     return MatchResponse.from(match);
@@ -168,7 +170,8 @@ public class BracketCommandService {
 
     Long tournamentId = tournament.getId();
 
-    if (tournament.getTournamentType() != TournamentType.GROUP_STAGE) {
+    if (tournament.getTournamentType() != TournamentType.GROUP_STAGE
+        && tournament.getTournamentType() != TournamentType.SPLIT_STAGE) {
       throw new RuntimeException("조별리그 대회에서만 사용할 수 있습니다.");
     }
 
@@ -243,7 +246,8 @@ public class BracketCommandService {
     Tournament tournament = findTournament(tournamentId);
     verifyOwner(tournament, user);
 
-    if (tournament.getTournamentType() != TournamentType.GROUP_STAGE) {
+    if (tournament.getTournamentType() != TournamentType.GROUP_STAGE
+        && tournament.getTournamentType() != TournamentType.SPLIT_STAGE) {
       throw new RuntimeException("조별리그 결선 토너먼트에서만 사용할 수 있습니다.");
     }
     Bracket bracket = bracketRepository.findByTournamentId(tournamentId)

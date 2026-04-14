@@ -36,18 +36,6 @@ public class Bracket {
     private boolean generated = false;
 
     /**
-     * 결선 방식: SINGLE(단일 토너먼트), SPLIT(상위/하위 분리 토너먼트)
-     */
-    @Column(name = "knockout_type", nullable = false, length = 10)
-    private String knockoutType = "SINGLE";
-
-    /**
-     * 상위/하위 분리 시 조당 상위 토너먼트 팀 수
-     */
-    @Column(name = "split_count")
-    private Integer splitCount;
-
-    /**
      * 대진표 이미지 URL 목록 (MANUAL 타입일 때 사용)
      */
     @ElementCollection(fetch = FetchType.EAGER)
@@ -119,14 +107,5 @@ public class Bracket {
 
     public boolean isGenerated() {
         return this.generated;
-    }
-
-    public boolean isSplit() {
-        return "SPLIT".equals(this.knockoutType);
-    }
-
-    public void configureSplit(int splitCount) {
-        this.knockoutType = "SPLIT";
-        this.splitCount = splitCount;
     }
 }

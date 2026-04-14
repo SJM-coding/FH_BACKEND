@@ -78,11 +78,16 @@ public class BracketGeneratorService {
             case GROUP_STAGE:
                 buildGroupStageBracket(tournament, participatingTeamIds);
                 break;
+            case SPLIT_STAGE:
+                // 풋투풋: 조별리그만 생성 (결선은 SplitBracketService가 담당)
+                buildSplitStageBracket(tournament, participatingTeamIds);
+                break;
             case SWISS_SYSTEM:
                 buildSwissSystemBracket(tournament, participatingTeamIds);
                 break;
             case EXTERNAL:
-                throw new RuntimeException("외부 대회는 자동 대진표 생성이 불가능합니다.");
+                throw new RuntimeException(
+                    "외부 대회는 자동 대진표 생성이 불가능합니다.");
         }
 
         bracket.markGenerated();
@@ -92,42 +97,58 @@ public class BracketGeneratorService {
             tournamentId, tournament.getTournamentType(), participatingTeamIds.size());
     }
 
-    private void applyGenerationSettings(Tournament tournament, BracketGenerateRequest request, int teamCount) {
+    private void applyGenerationSettings(
+        Tournament tournament, BracketGenerateRequest request, int teamCount
+    ) {
         switch (tournament.getTournamentType()) {
             case GROUP_STAGE -> {
-                if (request.getGroupCount() != null) {
-                    tournament.setGroupCount(request.getGroupCount());
-                }
-                if (request.getTeamsPerGroup() != null) {
-                    tournament.setTeamsPerGroup(request.getTeamsPerGroup());
-                }
-                if (request.getAdvanceCount() != null) {
-                    tournament.setAdvanceCount(request.getAdvanceCount());
-                }
-
-                if (tournament.getGroupCount() == null || tournament.getTeamsPerGroup() == null) {
-                    throw new RuntimeException("조별리그 설정이 없습니다.");
-                }
-                if (!Objects.equals(tournament.getGroupCount() * tournament.getTeamsPerGroup(), teamCount)) {
-                    throw new RuntimeException(
-                            String.format("참가 팀 수(%d)가 조 구성(%d개 조 × %d팀)과 맞지 않습니다.",
-                                    teamCount, tournament.getGroupCount(), tournament.getTeamsPerGroup())
-                    );
-                }
-                if (tournament.getAdvanceCount() == null || tournament.getAdvanceCount() < 1) {
+                applyGroupSettings(tournament, request, teamCount);
+                if (tournament.getAdvanceCount() == null
+                    || tournament.getAdvanceCount() < 1) {
                     tournament.setAdvanceCount(2);
                 }
+            }
+            case SPLIT_STAGE -> {
+                // 풋투풋도 조별 설정 유효성 검사 (advanceCount는 사용 안 함)
+                applyGroupSettings(tournament, request, teamCount);
             }
             case SWISS_SYSTEM -> {
                 if (request.getSwissRounds() != null) {
                     tournament.setSwissRounds(request.getSwissRounds());
                 }
-                if (tournament.getSwissRounds() == null || tournament.getSwissRounds() < 1) {
-                    throw new RuntimeException("스위스 시스템 라운드 수가 올바르지 않습니다.");
+                if (tournament.getSwissRounds() == null
+                    || tournament.getSwissRounds() < 1) {
+                    throw new RuntimeException(
+                        "스위스 시스템 라운드 수가 올바르지 않습니다.");
                 }
             }
             default -> {
             }
+        }
+    }
+
+    private void applyGroupSettings(
+        Tournament tournament, BracketGenerateRequest request, int teamCount
+    ) {
+        if (request.getGroupCount() != null) {
+            tournament.setGroupCount(request.getGroupCount());
+        }
+        if (request.getTeamsPerGroup() != null) {
+            tournament.setTeamsPerGroup(request.getTeamsPerGroup());
+        }
+        if (tournament.getGroupCount() == null
+            || tournament.getTeamsPerGroup() == null) {
+            throw new RuntimeException("조별리그 설정이 없습니다.");
+        }
+        if (!Objects.equals(
+            tournament.getGroupCount() * tournament.getTeamsPerGroup(), teamCount)
+        ) {
+            throw new RuntimeException(
+                String.format(
+                    "참가 팀 수(%d)가 조 구성(%d개 조 × %d팀)과 맞지 않습니다.",
+                    teamCount,
+                    tournament.getGroupCount(),
+                    tournament.getTeamsPerGroup()));
         }
     }
 
@@ -257,6 +278,76 @@ public class BracketGeneratorService {
         // 결선 토너먼트 빈 경기 생성
         newMatches.addAll(buildEmptyKnockoutMatches(
             tournament, groupCount, tournament.getAdvanceCount()));
+
+        groupRepository.saveAll(newGroups);
+        matchRepository.saveAll(newMatches);
+    }
+
+    /**
+     * 풋투풋(SPLIT_STAGE) 대진표 생성 — 조별리그만 생성
+     * 결선(UPPER/LOWER 분리 토너먼트)은 SplitBracketService가 담당.
+     */
+    private void buildSplitStageBracket(Tournament tournament, List<Long> teamIds) {
+        int teamCount = teamIds.size();
+        int groupCount = tournament.getGroupCount();
+        int teamsPerGroup = tournament.getTeamsPerGroup();
+
+        if (teamCount != groupCount * teamsPerGroup) {
+            throw new RuntimeException(
+                String.format(
+                    "팀 수(%d)가 조 구성(%d개 조 × %d팀)과 맞지 않습니다.",
+                    teamCount, groupCount, teamsPerGroup)
+            );
+        }
+
+        log.info("풋투풋 조별리그 생성: {}개 조, 조당 {}팀",
+            groupCount, teamsPerGroup);
+
+        Map<Long, Team> teamMap = loadTeams(teamIds);
+        List<Long> orderedTeams = new ArrayList<>(teamIds);
+
+        List<TournamentGroup> newGroups = new ArrayList<>();
+        List<TournamentMatch> newMatches = new ArrayList<>();
+        int matchNumber = 1;
+
+        for (int i = 0; i < groupCount; i++) {
+            TournamentGroup group = TournamentGroup.builder()
+                    .tournamentId(tournament.getId())
+                    .groupName(generateGroupName(i))
+                    .groupOrder(i + 1)
+                    .build();
+
+            List<Team> groupTeams = new ArrayList<>();
+            for (int j = 0; j < teamsPerGroup; j++) {
+                Long teamId = orderedTeams.get(i * teamsPerGroup + j);
+                if (teamMap.containsKey(teamId)) {
+                    Team team = teamMap.get(teamId);
+                    group.addTeamId(team.getId());
+                    groupTeams.add(team);
+                }
+            }
+            newGroups.add(group);
+
+            for (int a = 0; a < groupTeams.size(); a++) {
+                for (int b = a + 1; b < groupTeams.size(); b++) {
+                    TournamentMatch match = TournamentMatch.builder()
+                            .tournamentId(tournament.getId())
+                            .round(1)
+                            .matchNumber(matchNumber++)
+                            .groupId(group.getGroupName())
+                            .status(TournamentMatch.MatchStatus.SCHEDULED)
+                            .build();
+                    Team ta = groupTeams.get(a);
+                    Team tb = groupTeams.get(b);
+                    match.assignTeam1(ta.getId(), ta.getName(), ta.getLogoUrl());
+                    match.assignTeam2(tb.getId(), tb.getName(), tb.getLogoUrl());
+                    newMatches.add(match);
+                }
+            }
+        }
+
+        log.info("풋투풋 조별리그 총 {}경기 생성 (결선은 운영진이 생성)",
+            matchNumber - 1);
 
         groupRepository.saveAll(newGroups);
         matchRepository.saveAll(newMatches);

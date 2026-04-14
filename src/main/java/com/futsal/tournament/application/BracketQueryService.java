@@ -100,9 +100,10 @@ public class BracketQueryService {
     return switch (tournament.getTournamentType()) {
       case SINGLE_ELIMINATION ->
           buildSingleEliminationBracket(builder, allMatches);
-      case GROUP_STAGE -> bracket.isSplit()
-          ? buildSplitBracket(builder, tournament, allMatches)
-          : buildGroupStageBracket(builder, tournament, allMatches);
+      case GROUP_STAGE ->
+          buildGroupStageBracket(builder, tournament, allMatches);
+      case SPLIT_STAGE ->
+          buildSplitBracket(builder, tournament, allMatches);
       case SWISS_SYSTEM ->
           buildSwissSystemBracket(builder, allMatches);
       default -> throw new RuntimeException("지원하지 않는 대회 유형입니다.");
@@ -243,11 +244,17 @@ public class BracketQueryService {
 
     log.info("분리 토너먼트 대진표 구성: tournamentId={}", tournament.getId());
 
+    // splitRank: 조별 상위/하위 경계 (teamsPerGroup / 2)
+    Integer teamsPerGroupVal = tournament.getTeamsPerGroup();
+    int splitRank = (teamsPerGroupVal != null && teamsPerGroupVal > 0)
+        ? teamsPerGroupVal / 2 : 0;
+
     // 조별리그 순위표
     List<TournamentGroup> groups =
         groupRepository.findByTournamentIdWithTeams(tournament.getId());
     List<BracketResponse.GroupInfo> groupInfos = new ArrayList<>();
     boolean allGroupsCompleted = true;
+    boolean anyGroupHasTie = false;
 
     for (TournamentGroup group : groups) {
       List<TournamentMatch> groupMatches = allMatches.stream()
@@ -259,14 +266,32 @@ public class BracketQueryService {
           groupMatches.stream().allMatch(TournamentMatch::isFinished);
       if (!groupCompleted) allGroupsCompleted = false;
 
+      // 상위/하위 경계선(splitRank번째 vs splitRank+1번째) 동점 감지
+      boolean hasTie = false;
+      List<Long> tiedTeamIds = new ArrayList<>();
+      if (groupCompleted && splitRank > 0 && standings.size() > splitRank) {
+        int upperBorderPts = standings.get(splitRank - 1).getPoints();
+        int lowerBorderPts = standings.get(splitRank).getPoints();
+        if (upperBorderPts == lowerBorderPts) {
+          hasTie = true;
+          anyGroupHasTie = true;
+          // 같은 승점인 팀 전부 tiedTeamIds에 포함
+          for (BracketResponse.TeamStanding s : standings) {
+            if (s.getPoints() == upperBorderPts) {
+              tiedTeamIds.add(s.getTeamId());
+            }
+          }
+        }
+      }
+
       groupInfos.add(BracketResponse.GroupInfo.builder()
           .groupName(group.getGroupName())
           .standings(standings)
           .matches(groupMatches.stream()
               .map(MatchResponse::from).collect(Collectors.toList()))
           .groupCompleted(groupCompleted)
-          .hasTie(false)
-          .tiedTeamIds(Collections.emptyList())
+          .hasTie(hasTie)
+          .tiedTeamIds(tiedTeamIds)
           .build());
     }
 
