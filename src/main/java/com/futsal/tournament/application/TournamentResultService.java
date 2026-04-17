@@ -6,12 +6,16 @@ import com.futsal.team.domain.TeamAward;
 import com.futsal.team.infrastructure.TeamAwardRepository;
 import com.futsal.team.infrastructure.TeamRepository;
 import com.futsal.tournament.domain.Tournament;
+import com.futsal.tournament.domain.TournamentParticipantMember;
 import com.futsal.tournament.domain.TournamentResult;
+import com.futsal.tournament.infrastructure.TournamentParticipantMemberRepository;
 import com.futsal.tournament.presentation.dto.TournamentResultRequest;
 import com.futsal.tournament.presentation.dto.TournamentResultResponse;
 import com.futsal.tournament.infrastructure.TournamentRepository;
 import com.futsal.tournament.infrastructure.TournamentResultRepository;
 import com.futsal.user.domain.User;
+import com.futsal.user.domain.UserAward;
+import com.futsal.user.infrastructure.UserAwardRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +36,8 @@ public class TournamentResultService {
     private final TournamentResultRepository resultRepository;
     private final TeamRepository teamRepository;
     private final TeamAwardRepository teamAwardRepository;
+    private final TournamentParticipantMemberRepository participantMemberRepository;
+    private final UserAwardRepository userAwardRepository;
 
     /**
      * 대회 결과 입력 (개최자만 가능)
@@ -49,6 +55,7 @@ public class TournamentResultService {
 
         // 기존 결과가 있으면 삭제 (덮어쓰기)
         if (resultRepository.existsByTournamentId(tournamentId)) {
+            userAwardRepository.deleteByTournamentId(tournamentId);
             teamAwardRepository.deleteByTournamentId(tournamentId);
             resultRepository.deleteByTournamentId(tournamentId);
         }
@@ -74,13 +81,32 @@ public class TournamentResultService {
 
             // Cross-BC: 팀 수상 경력 생성 (Team BC)
             teamAwardRepository.save(TeamAward.builder()
-                    .team(team)
+                    .teamId(team.getId())
+                    .teamName(team.getName())
                     .tournamentId(tournamentId)
                     .tournamentName(tournament.getTitle())
                     .awardType(awardType)
                     .awardDate(tournament.getTournamentDate())
                     .description(null)
                     .build());
+
+            // Cross-BC: 참가 시점 스냅샷 기반 개인 수상 뱃지 생성 (Identity BC)
+            List<TournamentParticipantMember> members =
+                participantMemberRepository.findByTournamentIdAndTeamId(tournamentId, team.getId());
+            List<UserAward> userAwards = members.stream()
+                .map(m -> UserAward.builder()
+                    .userId(m.getUserId())
+                    .teamId(team.getId())
+                    .teamName(team.getName())
+                    .organizerUserId(tournament.getRegisteredBy().getId())
+                    .organizerName(tournament.getRegisteredBy().getNickname())
+                    .tournamentId(tournamentId)
+                    .tournamentName(tournament.getTitle())
+                    .awardType(awardType)
+                    .awardDate(tournament.getTournamentDate())
+                    .build())
+                .toList();
+            userAwardRepository.saveAll(userAwards);
         }
 
         return results.stream()
@@ -116,6 +142,7 @@ public class TournamentResultService {
             throw new RuntimeException("대회 결과를 삭제할 권한이 없습니다");
         }
 
+        userAwardRepository.deleteByTournamentId(tournamentId);
         teamAwardRepository.deleteByTournamentId(tournamentId);
         resultRepository.deleteByTournamentId(tournamentId);
     }

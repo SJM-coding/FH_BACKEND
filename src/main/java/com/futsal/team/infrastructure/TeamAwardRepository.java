@@ -15,8 +15,7 @@ public interface TeamAwardRepository extends JpaRepository<TeamAward, Long> {
     /**
      * 팀의 수상 경력 조회 (최신순)
      */
-    @Query("SELECT a FROM TeamAward a WHERE a.team.id = :teamId ORDER BY a.awardDate DESC")
-    List<TeamAward> findByTeamId(@Param("teamId") Long teamId);
+    List<TeamAward> findByTeamIdOrderByAwardDateDesc(Long teamId);
 
     /**
      * 팀의 수상 경력 개수
@@ -27,13 +26,6 @@ public interface TeamAwardRepository extends JpaRepository<TeamAward, Long> {
      * 대회별 수상 경력 삭제 (대회 결과 삭제 시 사용)
      */
     void deleteByTournamentId(Long tournamentId);
-
-    /**
-     * 팀 삭제 시 수상 경력 일괄 삭제
-     */
-    @Modifying
-    @Query("DELETE FROM TeamAward a WHERE a.team.id = :teamId")
-    void deleteByTeamId(@Param("teamId") Long teamId);
 
     /**
      * 대회 제목 변경 시 역정규화 필드 일괄 동기화

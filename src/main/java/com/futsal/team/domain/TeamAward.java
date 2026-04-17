@@ -21,9 +21,11 @@ public class TeamAward {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "team_id", nullable = false)
-    private Team team;
+    @Column(name = "team_id", nullable = false)
+    private Long teamId;
+
+    @Column(name = "team_name", nullable = false, length = 100)
+    private String teamName;
 
     /**
      * 대회 ID (선택 - 대회와 연결되지 않은 수상도 가능)

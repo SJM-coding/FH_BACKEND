@@ -22,7 +22,7 @@ public class TeamAwardResponse {
     public static TeamAwardResponse from(TeamAward award) {
         return TeamAwardResponse.builder()
                 .id(award.getId())
-                .teamId(award.getTeam().getId())
+                .teamId(award.getTeamId())
                 .tournamentId(award.getTournamentId())
                 .tournamentName(award.getTournamentName())
                 .awardType(award.getAwardType().name())
