@@ -95,6 +95,12 @@ public interface TournamentParticipantRepository extends JpaRepository<Tournamen
     void deleteByRegisteredBy(Long userId);
 
     /**
+     * 팀이 현재 CONFIRMED 상태로 참가 중인지 확인 — 팀원 추가 잠금 체크용
+     */
+    boolean existsByTeamIdAndStatus(
+        Long teamId, TournamentParticipant.ParticipantStatus status);
+
+    /**
      * 팀 프로필 변경 시 역정규화 필드 일괄 동기화
      */
     @Modifying

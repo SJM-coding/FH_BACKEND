@@ -1,11 +1,16 @@
 package com.futsal.tournament.application;
 
 import com.futsal.team.domain.Team;
+import com.futsal.team.domain.TeamMember;
+import com.futsal.team.domain.TeamMemberStatus;
+import com.futsal.team.infrastructure.TeamMemberRepository;
 import com.futsal.team.infrastructure.TeamRepository;
 import com.futsal.tournament.domain.Bracket;
 import com.futsal.tournament.domain.Tournament;
 import com.futsal.tournament.domain.TournamentParticipant;
+import com.futsal.tournament.domain.TournamentParticipantMember;
 import com.futsal.tournament.infrastructure.BracketRepository;
+import com.futsal.tournament.infrastructure.TournamentParticipantMemberRepository;
 import com.futsal.tournament.infrastructure.TournamentParticipantRepository;
 import com.futsal.tournament.infrastructure.TournamentRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +30,9 @@ public class ParticipantService {
 
     private final TournamentRepository tournamentRepository;
     private final TournamentParticipantRepository participantRepository;
+    private final TournamentParticipantMemberRepository participantMemberRepository;
     private final TeamRepository teamRepository;
+    private final TeamMemberRepository teamMemberRepository;
     private final BracketRepository bracketRepository;
 
     /**
@@ -104,8 +111,21 @@ public class ParticipantService {
 
         TournamentParticipant saved = participantRepository.save(participant);
 
-        log.info("대회 참가 완료: 대회 ID={}, 팀 ID={}, 사용자 ID={}",
-                tournament.getId(), teamId, userId);
+        // 참가 시점 팀원 스냅샷 저장 — 이후 팀 구성 변경과 무관하게 이력 보존
+        List<TeamMember> activeMembers = teamMemberRepository
+            .findByTeamIdAndStatusWithUser(teamId, TeamMemberStatus.ACTIVE);
+        List<TournamentParticipantMember> snapshots = activeMembers.stream()
+            .map(m -> TournamentParticipantMember.builder()
+                .tournamentParticipantId(saved.getId())
+                .tournamentId(tournament.getId())
+                .teamId(teamId)
+                .userId(m.getUser().getId())
+                .build())
+            .toList();
+        participantMemberRepository.saveAll(snapshots);
+
+        log.info("대회 참가 완료: 대회 ID={}, 팀 ID={}, 사용자 ID={}, 스냅샷 인원={}",
+                tournament.getId(), teamId, userId, snapshots.size());
 
         return saved;
     }
@@ -133,6 +153,9 @@ public class ParticipantService {
         // Participant Aggregate가 자신의 상태 변경
         participant.withdraw();
         participantRepository.save(participant);
+
+        // 참가 취소 시 스냅샷도 함께 삭제
+        participantMemberRepository.deleteByTournamentParticipantId(participant.getId());
 
         log.info("대회 참가 취소: 대회 ID={}, 팀 ID={}", tournamentId, teamId);
     }

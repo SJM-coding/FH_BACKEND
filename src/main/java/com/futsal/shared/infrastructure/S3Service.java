@@ -36,6 +36,13 @@ public class S3Service {
     }
 
     /**
+     * 팀 로고 이미지를 S3에 업로드하고 URL을 반환
+     */
+    public String uploadLogo(MultipartFile file) {
+        return uploadFile(file, "logos/");
+    }
+
+    /**
      * 대진표 이미지를 S3에 업로드하고 URL을 반환
      */
     public String uploadBracketImage(MultipartFile file) {

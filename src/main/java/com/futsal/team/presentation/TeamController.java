@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -73,6 +74,21 @@ public class TeamController {
     public ResponseEntity<List<TeamMemberResponse>> getTeamMembers(@PathVariable Long id) {
         List<TeamMemberResponse> members = teamService.getTeamMembers(id);
         return ResponseEntity.ok(members);
+    }
+
+    /**
+     * 팀 로고 업로드
+     * POST /api/teams/{id}/logo
+     */
+    @PostMapping("/{id}/logo")
+    public ResponseEntity<java.util.Map<String, String>> uploadLogo(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal User user
+    ) {
+        if (user == null) return ResponseEntity.status(401).build();
+        String logoUrl = teamService.uploadLogo(id, file, user);
+        return ResponseEntity.ok(java.util.Map.of("logoUrl", logoUrl));
     }
 
     /**

@@ -7,6 +7,7 @@ import com.futsal.team.domain.Team;
 import com.futsal.team.domain.TeamAward;
 import com.futsal.team.domain.TeamMember;
 import com.futsal.team.domain.TeamTactics;
+import com.futsal.tournament.domain.Tournament;
 import com.futsal.user.domain.User;
 import com.futsal.team.domain.PlayerPosition;
 import com.futsal.team.domain.TeamMemberRole;
@@ -23,11 +24,11 @@ import com.futsal.team.presentation.dto.TeamUpdateRequest;
 import com.futsal.team.presentation.dto.TacticsPlayerPosition;
 import com.futsal.team.presentation.dto.TacticsSaveRequest;
 import com.futsal.team.presentation.dto.TacticsResponse;
+import com.futsal.shared.infrastructure.S3Service;
 import com.futsal.team.infrastructure.TeamAwardRepository;
 import com.futsal.team.infrastructure.TeamMemberRepository;
 import com.futsal.team.infrastructure.TeamRepository;
 import com.futsal.team.infrastructure.TeamTacticsRepository;
-import com.futsal.tournament.domain.Tournament;
 import com.futsal.tournament.domain.TournamentParticipant;
 import com.futsal.tournament.infrastructure.TournamentParticipantRepository;
 import com.futsal.tournament.infrastructure.TournamentRepository;
@@ -57,6 +58,7 @@ public class TeamService {
     private final TournamentRepository tournamentRepository;
     private final ObjectMapper objectMapper;
     private final UserRepository userRepository;
+    private final S3Service s3Service;
 
     /**
      * 팀 생성
@@ -171,6 +173,22 @@ public class TeamService {
     }
 
     /**
+     * 팀 로고 이미지를 S3에 업로드하고 logoUrl을 갱신한다.
+     */
+    @Transactional
+    public String uploadLogo(Long teamId, org.springframework.web.multipart.MultipartFile file, User user) {
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new RuntimeException("팀을 찾을 수 없습니다: " + teamId));
+        if (!team.isCaptain(user.getId())) {
+            throw new RuntimeException("로고를 변경할 권한이 없습니다");
+        }
+        String logoUrl = s3Service.uploadLogo(file);
+        team.updateTeam(team.getName(), team.getRegion(), logoUrl);
+        teamRepository.save(team);
+        return logoUrl;
+    }
+
+    /**
      * 팀 정보 수정
      */
     @Transactional
@@ -189,20 +207,20 @@ public class TeamService {
     }
 
     /**
-     * 팀 삭제
+     * 팀 삭제 (소프트 딜리트)
+     *  TeamAward, UserAward 등 수상 이력은 그대로 보존된다.
      */
     @Transactional
     public void deleteTeam(Long teamId, User user) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new RuntimeException("팀을 찾을 수 없습니다: " + teamId));
-        
+
         if (!team.isCaptain(user.getId())) {
             throw new RuntimeException("팀을 삭제할 권한이 없습니다");
         }
-        
-        teamAwardRepository.deleteByTeamId(teamId);
-        teamMemberRepository.deleteByTeamId(teamId);
-        teamRepository.delete(team);
+
+        team.delete();
+        teamRepository.save(team);
     }
 
     /**
@@ -272,7 +290,13 @@ public class TeamService {
         
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new RuntimeException("팀을 찾을 수 없습니다"));
-        
+
+        // 대회 참가 중인 팀은 신규 멤버 추가 불가 — 당시 팀 구성 보존
+        if (participantRepository.existsByTeamIdAndStatus(
+                teamId, TournamentParticipant.ParticipantStatus.CONFIRMED)) {
+            throw new IllegalStateException("대회 참가 중인 팀에는 새로운 멤버가 합류할 수 없습니다.");
+        }
+
         Optional<TeamMember> existingMember = teamMemberRepository.findByTeamAndUser(team, user);
         if (existingMember.isPresent()) {
             if (existingMember.get().getStatus() == TeamMemberStatus.ACTIVE) {
@@ -431,7 +455,7 @@ public class TeamService {
         teamRepository.findById(teamId)
                 .orElseThrow(() -> new RuntimeException("팀을 찾을 수 없습니다: " + teamId));
 
-        List<TeamAward> awards = teamAwardRepository.findByTeamId(teamId);
+        List<TeamAward> awards = teamAwardRepository.findByTeamIdOrderByAwardDateDesc(teamId);
         return awards.stream()
                 .map(TeamAwardResponse::from)
                 .collect(Collectors.toList());
