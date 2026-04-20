@@ -24,6 +24,7 @@ import com.futsal.team.presentation.dto.TeamUpdateRequest;
 import com.futsal.team.presentation.dto.TacticsPlayerPosition;
 import com.futsal.team.presentation.dto.TacticsSaveRequest;
 import com.futsal.team.presentation.dto.TacticsResponse;
+import com.futsal.shared.infrastructure.S3Service;
 import com.futsal.team.infrastructure.TeamAwardRepository;
 import com.futsal.team.infrastructure.TeamMemberRepository;
 import com.futsal.team.infrastructure.TeamRepository;
@@ -57,6 +58,7 @@ public class TeamService {
     private final TournamentRepository tournamentRepository;
     private final ObjectMapper objectMapper;
     private final UserRepository userRepository;
+    private final S3Service s3Service;
 
     /**
      * 팀 생성
@@ -168,6 +170,22 @@ public class TeamService {
         return members.stream()
                 .map(this::toMemberResponse)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 팀 로고 이미지를 S3에 업로드하고 logoUrl을 갱신한다.
+     */
+    @Transactional
+    public String uploadLogo(Long teamId, org.springframework.web.multipart.MultipartFile file, User user) {
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new RuntimeException("팀을 찾을 수 없습니다: " + teamId));
+        if (!team.isCaptain(user.getId())) {
+            throw new RuntimeException("로고를 변경할 권한이 없습니다");
+        }
+        String logoUrl = s3Service.uploadLogo(file);
+        team.updateTeam(team.getName(), team.getRegion(), logoUrl);
+        teamRepository.save(team);
+        return logoUrl;
     }
 
     /**
