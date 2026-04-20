@@ -5,8 +5,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-
 /**
  * Modal AI 서버가 파싱한 단일 경기 정보.
  * DB 저장 전 운영자 확인용 미리보기 DTO.
@@ -30,7 +28,8 @@ public class ParsedMatchDto {
   private Long team1Id;
   private Long team2Id;
 
-  private LocalDateTime scheduledAt;
+  /** ISO-8601 문자열 (YYYY-MM-DDTHH:MM:SS). LocalDateTime 직렬화 이슈 방지용 String 타입 */
+  private String scheduledAt;
   private String venueName;
 
   /** true: 참가자 목록에 없는 팀명 포함 → 운영자 확인 필요 */

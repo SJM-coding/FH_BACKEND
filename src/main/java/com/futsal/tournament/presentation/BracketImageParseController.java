@@ -5,6 +5,7 @@ import com.futsal.tournament.presentation.dto.GroupAssignmentDto;
 import com.futsal.tournament.presentation.dto.GroupParseResponse;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -28,8 +29,8 @@ public class BracketImageParseController {
    */
   @GetMapping("/warmup")
   public ResponseEntity<Void> warmup() {
-    bracketImageParseService.warmup();
-    return ResponseEntity.ok().build();
+    // AI 파싱 기능 준비 완료 전까지 비활성화
+    return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
   }
 
   /**

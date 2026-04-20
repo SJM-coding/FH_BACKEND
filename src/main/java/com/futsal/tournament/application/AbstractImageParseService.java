@@ -103,7 +103,7 @@ public abstract class AbstractImageParseService {
         .team2Name(team2Name)
         .team1Id(team1Id)
         .team2Id(team2Id)
-        .scheduledAt(toDateTime(raw.get("scheduledAt")))
+        .scheduledAt(str(raw.get("scheduledAt")))
         .venueName(str(raw.get("venueName")))
         .hasUnmappedTeam(team1Id == null || team2Id == null)
         .build();

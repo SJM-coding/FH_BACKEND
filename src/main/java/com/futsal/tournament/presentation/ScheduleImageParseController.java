@@ -3,6 +3,7 @@ package com.futsal.tournament.presentation;
 import com.futsal.tournament.application.ScheduleImageParseService;
 import com.futsal.tournament.presentation.dto.ScheduleParseResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,8 +26,8 @@ public class ScheduleImageParseController {
    */
   @GetMapping("/warmup")
   public ResponseEntity<Void> warmup() {
-    scheduleImageParseService.warmup();
-    return ResponseEntity.ok().build();
+    // AI 파싱 기능 준비 완료 전까지 비활성화
+    return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
   }
 
   /**
