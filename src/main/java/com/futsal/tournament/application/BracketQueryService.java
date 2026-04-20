@@ -456,10 +456,10 @@ public class BracketQueryService {
     List<BracketResponse.TeamStanding> sorted = standingsMap.values().stream()
         .sorted(Comparator
             .comparing(BracketResponse.TeamStanding::getPoints).reversed()
-            .thenComparing(BracketResponse.TeamStanding::getGoalDifference)
-            .reversed()
-            .thenComparing(BracketResponse.TeamStanding::getGoalsFor)
-            .reversed())
+            .thenComparing(
+                Comparator.comparing(BracketResponse.TeamStanding::getGoalDifference).reversed())
+            .thenComparing(
+                Comparator.comparing(BracketResponse.TeamStanding::getGoalsFor).reversed()))
         .collect(Collectors.toList());
 
     for (int i = 0; i < sorted.size(); i++) {

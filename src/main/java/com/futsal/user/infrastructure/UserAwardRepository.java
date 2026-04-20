@@ -23,4 +23,6 @@ public interface UserAwardRepository extends JpaRepository<UserAward, Long> {
    * 유저 탈퇴 시 뱃지 일괄 삭제
    */
   void deleteByUserId(Long userId);
+
+  boolean existsByTournamentId(Long tournamentId);
 }

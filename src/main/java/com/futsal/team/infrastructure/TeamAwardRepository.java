@@ -27,6 +27,8 @@ public interface TeamAwardRepository extends JpaRepository<TeamAward, Long> {
      */
     void deleteByTournamentId(Long tournamentId);
 
+    boolean existsByTournamentId(Long tournamentId);
+
     /**
      * 대회 제목 변경 시 역정규화 필드 일괄 동기화
      */

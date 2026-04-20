@@ -1,14 +1,20 @@
 package com.futsal.tournament.application;
 
+import com.futsal.team.domain.AwardType;
 import com.futsal.team.domain.Team;
+import com.futsal.team.domain.TeamAward;
+import com.futsal.team.infrastructure.TeamAwardRepository;
 import com.futsal.team.infrastructure.TeamRepository;
 import com.futsal.tournament.domain.*;
 import com.futsal.tournament.presentation.dto.*;
 import com.futsal.tournament.infrastructure.BracketRepository;
 import com.futsal.tournament.infrastructure.TournamentGroupRepository;
 import com.futsal.tournament.infrastructure.TournamentMatchRepository;
+import com.futsal.tournament.infrastructure.TournamentParticipantMemberRepository;
 import com.futsal.tournament.infrastructure.TournamentRepository;
 import com.futsal.user.domain.User;
+import com.futsal.user.domain.UserAward;
+import com.futsal.user.infrastructure.UserAwardRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -34,6 +40,9 @@ public class BracketCommandService {
   private final TeamRepository teamRepository;
   private final BracketQueryService bracketQueryService;
   private final BracketRepository bracketRepository;
+  private final TeamAwardRepository teamAwardRepository;
+  private final UserAwardRepository userAwardRepository;
+  private final TournamentParticipantMemberRepository participantMemberRepository;
 
   // ── 경기 일정 ──────────────────────────────────────────────────────
 
@@ -137,7 +146,92 @@ public class BracketCommandService {
       // 조별리그 경기(groupId != null): 운영진이 generateSplitBracket으로 수동 확정
     }
 
+    autoSaveAwardsIfTournamentComplete(tournament);
+
     return MatchResponse.from(match);
+  }
+
+  /**
+   * 모든 경기가 끝났으면 1~3위 수상 경력 자동 저장 (중복 방지)
+   */
+  private void autoSaveAwardsIfTournamentComplete(Tournament tournament) {
+    List<TournamentMatch> allMatches =
+        matchRepository.findByTournamentIdWithTeams(tournament.getId());
+
+    boolean allFinished = allMatches.stream()
+        .allMatch(TournamentMatch::isFinished);
+    if (!allFinished) return;
+
+    // 이미 수상 경력이 저장되어 있으면 스킵
+    if (teamAwardRepository.existsByTournamentId(tournament.getId())
+        || userAwardRepository.existsByTournamentId(tournament.getId())) return;
+
+    // 결선 경기에서 1위(결승 승자), 2위(결승 패자), 3위(3·4위전 승자) 추출
+    List<TournamentMatch> knockoutMatches = allMatches.stream()
+        .filter(m -> m.getGroupId() == null && m.getRound() > 1)
+        .filter(m -> m.getBracketPhase() == null || "UPPER".equals(m.getBracketPhase()))
+        .collect(Collectors.toList());
+
+    int maxRound = knockoutMatches.stream()
+        .mapToInt(TournamentMatch::getRound)
+        .max().orElse(0);
+    if (maxRound == 0) return;
+
+    List<TournamentMatch> finalRoundMatches = knockoutMatches.stream()
+        .filter(m -> m.getRound() == maxRound)
+        .collect(Collectors.toList());
+
+    Map<Long, Integer> teamRanks = new LinkedHashMap<>();
+    for (TournamentMatch m : finalRoundMatches) {
+      if (m.getWinnerId() == null) return;
+      if (m.getMatchNumber() == 1) {
+        teamRanks.put(m.getWinnerId(), 1);
+        if (m.getLoserId() != null) teamRanks.put(m.getLoserId(), 2);
+      } else if (m.getMatchNumber() == 2) {
+        teamRanks.put(m.getWinnerId(), 3);
+      }
+    }
+    if (teamRanks.isEmpty()) return;
+
+    for (Map.Entry<Long, Integer> entry : teamRanks.entrySet()) {
+      Long teamId = entry.getKey();
+      int rank = entry.getValue();
+      AwardType awardType = TournamentResult.getAwardTypeByRank(rank);
+      if (awardType == null) continue;
+
+      teamRepository.findById(teamId).ifPresent(team -> {
+        teamAwardRepository.save(TeamAward.builder()
+            .teamId(team.getId())
+            .teamName(team.getName())
+            .tournamentId(tournament.getId())
+            .tournamentName(tournament.getTitle())
+            .awardType(awardType)
+            .awardDate(tournament.getTournamentDate())
+            .description(null)
+            .build());
+
+        List<TournamentParticipantMember> members =
+            participantMemberRepository.findByTournamentIdAndTeamId(
+                tournament.getId(), teamId);
+        List<UserAward> userAwards = members.stream()
+            .map(m -> UserAward.builder()
+                .userId(m.getUserId())
+                .teamId(team.getId())
+                .teamName(team.getName())
+                .organizerUserId(tournament.getRegisteredBy().getId())
+                .organizerName(tournament.getRegisteredBy().getNickname())
+                .tournamentId(tournament.getId())
+                .tournamentName(tournament.getTitle())
+                .awardType(awardType)
+                .awardDate(tournament.getTournamentDate())
+                .build())
+            .toList();
+        userAwardRepository.saveAll(userAwards);
+
+        log.info("수상 경력 자동 저장: tournamentId={}, teamId={}, rank={}",
+            tournament.getId(), teamId, rank);
+      });
+    }
   }
 
   // ── 진출팀 선택 ────────────────────────────────────────────────────
@@ -476,7 +570,8 @@ public class BracketCommandService {
     List<TournamentGroup> groups =
         groupRepository.findByTournamentIdWithTeams(tournament.getId());
 
-    // 동점 체크: 있으면 자동 배정하지 않음 (개최자가 수동 선택)
+    // 동점 체크: 진출 컷 경계선에서 동점이면 자동 배정하지 않음 (개최자가 수동 선택)
+    int advanceCount = tournament.getAdvanceCount();
     for (TournamentGroup group : groups) {
       List<TournamentMatch> gMatches = groupMatches.stream()
           .filter(m -> group.getGroupName().equals(m.getGroupId()))
@@ -484,9 +579,11 @@ public class BracketCommandService {
       List<BracketResponse.TeamStanding> standings =
           bracketQueryService.calculateStandings(group, gMatches);
 
-      if (standings.size() >= 3
-          && standings.get(1).getPoints() == standings.get(2).getPoints()) {
-        log.info("조별리그 {} 동점 발견: 수동 선택 필요", group.getGroupName());
+      if (standings.size() > advanceCount
+          && standings.get(advanceCount - 1).getPoints()
+              == standings.get(advanceCount).getPoints()) {
+        log.info("조별리그 {} 동점 발견 ({}위/{}위 경계): 수동 선택 필요",
+            group.getGroupName(), advanceCount, advanceCount + 1);
         return;
       }
     }
@@ -502,8 +599,8 @@ public class BracketCommandService {
       List<BracketResponse.TeamStanding> standings =
           bracketQueryService.calculateStandings(group, gMatches);
 
-      int advanceCount = Math.min(tournament.getAdvanceCount(), standings.size());
-      for (int i = 0; i < advanceCount; i++) {
+      int effectiveAdvanceCount = Math.min(advanceCount, standings.size());
+      for (int i = 0; i < effectiveAdvanceCount; i++) {
         Long teamId = standings.get(i).getTeamId();
         teamRepository.findById(teamId).ifPresent(qualifiedTeams::add);
       }
