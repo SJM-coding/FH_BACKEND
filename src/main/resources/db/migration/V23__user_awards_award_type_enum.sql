@@ -1,0 +1,4 @@
+-- user_awards.award_type VARCHAR -> ENUM
+ALTER TABLE user_awards
+    MODIFY COLUMN award_type
+    ENUM('CHAMPION','RUNNER_UP','THIRD_PLACE','FOURTH_PLACE','PARTICIPATION') NOT NULL;
