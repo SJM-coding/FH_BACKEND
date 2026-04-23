@@ -33,3 +33,8 @@ tournament-viewcount.js
 DDD_DESIGN_RULES.md
 
 DDD_REFACTORING.md
+
+# Local profile overrides
+src/main/resources/application-local.yml
+
+scripts/seed_tournament_perf.sql
