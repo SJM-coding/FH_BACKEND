@@ -103,7 +103,8 @@ public class ShareCodeController {
         }
 
         try {
-            MatchResponse result = bracketCommandService.recordMatchResult(tournament.getId(), matchId, request);
+            MatchResponse result = bracketCommandService.recordMatchResultByShareCode(
+                    tournament.getId(), matchId, request);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -181,7 +182,8 @@ public class ShareCodeController {
         }
 
         try {
-            var results = bracketCommandService.updateMatchSchedules(tournament.getId(), request);
+            var results = bracketCommandService.updateMatchSchedulesByShareCode(
+                    tournament.getId(), request);
             return ResponseEntity.ok(results);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

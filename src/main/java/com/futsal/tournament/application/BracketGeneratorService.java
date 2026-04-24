@@ -8,6 +8,7 @@ import com.futsal.tournament.infrastructure.BracketRepository;
 import com.futsal.tournament.infrastructure.TournamentGroupRepository;
 import com.futsal.tournament.infrastructure.TournamentMatchRepository;
 import com.futsal.tournament.infrastructure.TournamentRepository;
+import com.futsal.user.domain.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,9 +34,14 @@ public class BracketGeneratorService {
      * 대진표 생성 (참가 팀 기반)
      */
     @Transactional
-    public void generateBracket(Long tournamentId, BracketGenerateRequest request) {
+    public void generateBracket(
+        Long tournamentId,
+        BracketGenerateRequest request,
+        User user
+    ) {
         Tournament tournament = tournamentRepository.findById(tournamentId)
                 .orElseThrow(() -> new RuntimeException("대회를 찾을 수 없습니다: " + tournamentId));
+        verifyOwner(tournament, user);
         List<Long> participatingTeamIds = request.getParticipatingTeamIds();
 
         if (participatingTeamIds == null || participatingTeamIds.isEmpty()) {
@@ -95,6 +101,12 @@ public class BracketGeneratorService {
 
         log.info("대진표 생성 완료: 대회 ID={}, 타입={}, 팀 수={}",
             tournamentId, tournament.getTournamentType(), participatingTeamIds.size());
+    }
+
+    private void verifyOwner(Tournament tournament, User user) {
+        if (!tournament.isRegisteredBy(user.getId())) {
+            throw new RuntimeException("대진표를 생성할 권한이 없습니다.");
+        }
     }
 
     private void applyGenerationSettings(

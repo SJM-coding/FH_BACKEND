@@ -40,7 +40,7 @@ public class BracketController {
   ) {
     if (user == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
     try {
-      generatorService.generateBracket(tournamentId, request);
+      generatorService.generateBracket(tournamentId, request, user);
       return ResponseEntity.ok(Map.of("message", "대진표가 생성되었습니다."));
     } catch (Exception e) {
       return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -73,7 +73,8 @@ public class BracketController {
     if (user == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
     try {
       MatchResponse result =
-          bracketCommandService.updateMatchSchedule(tournamentId, matchId, request);
+          bracketCommandService.updateMatchSchedule(
+              tournamentId, matchId, request, user);
       return ResponseEntity.ok(result);
     } catch (Exception e) {
       return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -92,7 +93,7 @@ public class BracketController {
     if (user == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
     try {
       List<MatchResponse> result =
-          bracketCommandService.updateMatchSchedules(tournamentId, request);
+          bracketCommandService.updateMatchSchedules(tournamentId, request, user);
       return ResponseEntity.ok(result);
     } catch (Exception e) {
       return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -112,7 +113,8 @@ public class BracketController {
     if (user == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
     try {
       MatchResponse result =
-          bracketCommandService.recordMatchResult(tournamentId, matchId, request);
+          bracketCommandService.recordMatchResult(
+              tournamentId, matchId, request, user);
       return ResponseEntity.ok(result);
     } catch (Exception e) {
       return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

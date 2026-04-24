@@ -51,8 +51,10 @@ public class BracketCommandService {
    */
   @Transactional
   public MatchResponse updateMatchSchedule(
-      Long tournamentId, Long matchId, MatchScheduleRequest request) {
+      Long tournamentId, Long matchId, MatchScheduleRequest request, User user) {
 
+    Tournament tournament = findTournament(tournamentId);
+    verifyOwner(tournament, user);
     TournamentMatch match = findMatch(matchId);
     verifyMatchBelongsTo(match, tournamentId);
     match.updateSchedule(request.getScheduledAt(), request.getVenueName());
@@ -67,8 +69,21 @@ public class BracketCommandService {
    */
   @Transactional
   public List<MatchResponse> updateMatchSchedules(
-      Long tournamentId, BatchMatchScheduleRequest request) {
+      Long tournamentId, BatchMatchScheduleRequest request, User user) {
 
+    Tournament tournament = findTournament(tournamentId);
+    verifyOwner(tournament, user);
+    return updateMatchSchedulesInternal(tournamentId, request);
+  }
+
+  @Transactional
+  public List<MatchResponse> updateMatchSchedulesByShareCode(
+      Long tournamentId, BatchMatchScheduleRequest request) {
+    return updateMatchSchedulesInternal(tournamentId, request);
+  }
+
+  private List<MatchResponse> updateMatchSchedulesInternal(
+      Long tournamentId, BatchMatchScheduleRequest request) {
     if (request.getSchedules() == null || request.getSchedules().isEmpty()) {
       throw new RuntimeException("저장할 경기 일정이 없습니다.");
     }
@@ -109,11 +124,24 @@ public class BracketCommandService {
    */
   @Transactional
   public MatchResponse recordMatchResult(
-      Long tournamentId, Long matchId, MatchResultRequest request) {
+      Long tournamentId, Long matchId, MatchResultRequest request, User user) {
 
     Tournament tournament = findTournament(tournamentId);
+    verifyOwner(tournament, user);
+    return recordMatchResultInternal(tournament, matchId, request);
+  }
+
+  @Transactional
+  public MatchResponse recordMatchResultByShareCode(
+      Long tournamentId, Long matchId, MatchResultRequest request) {
+    Tournament tournament = findTournament(tournamentId);
+    return recordMatchResultInternal(tournament, matchId, request);
+  }
+
+  private MatchResponse recordMatchResultInternal(
+      Tournament tournament, Long matchId, MatchResultRequest request) {
     TournamentMatch match = findMatch(matchId);
-    verifyMatchBelongsTo(match, tournamentId);
+    verifyMatchBelongsTo(match, tournament.getId());
 
     // Tournament에서 경기 유형 판단 (컨텍스트 제공)
     boolean isKnockout = tournament.isKnockoutMatch(match);
