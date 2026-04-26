@@ -32,7 +32,7 @@ public class Bracket {
     @Column(nullable = false, length = 10)
     private BracketType type = BracketType.AUTO;
 
-    @Column(nullable = false)
+    @Column(name = "`generated`", nullable = false)
     private boolean generated = false;
 
     /**

@@ -194,18 +194,27 @@ public class TournamentMatch {
         Integer team1PenaltyScore, Integer team2PenaltyScore,
         boolean isKnockout
     ) {
+        if (status == MatchStatus.FINISHED || status == MatchStatus.CANCELLED) {
+            throw new IllegalStateException("종료되었거나 취소된 경기에는 결과를 다시 입력할 수 없습니다.");
+        }
         if (team1Id == null || team2Id == null) {
             throw new IllegalStateException("양 팀이 모두 배정되어야 결과를 입력할 수 있습니다.");
         }
+        if (team1Score == null || team2Score == null) {
+            throw new IllegalStateException("정규 시간 점수는 모두 입력해야 합니다.");
+        }
+        validateNonNegativeScore(team1Score, "팀1 정규 시간 점수");
+        validateNonNegativeScore(team2Score, "팀2 정규 시간 점수");
 
-        boolean isDraw = team1Score != null && team2Score != null
-            && team1Score.equals(team2Score);
+        boolean isDraw = team1Score.equals(team2Score);
 
         if (isKnockout && isDraw) {
             if (team1PenaltyScore == null || team2PenaltyScore == null) {
                 throw new IllegalStateException(
                     "결선 토너먼트 동점 경기는 승부차기 점수를 입력해야 합니다.");
             }
+            validateNonNegativeScore(team1PenaltyScore, "팀1 승부차기 점수");
+            validateNonNegativeScore(team2PenaltyScore, "팀2 승부차기 점수");
             if (team1PenaltyScore.equals(team2PenaltyScore)) {
                 throw new IllegalStateException("승부차기 점수는 동점일 수 없습니다.");
             }
@@ -213,6 +222,14 @@ public class TournamentMatch {
 
         if (!isKnockout && (team1PenaltyScore != null || team2PenaltyScore != null)) {
             throw new IllegalStateException("조별리그 경기에는 승부차기 점수를 입력할 수 없습니다.");
+        }
+        if (!isKnockout) {
+            this.team1PenaltyScore = null;
+            this.team2PenaltyScore = null;
+        }
+        if (isKnockout && !isDraw && (team1PenaltyScore != null || team2PenaltyScore != null)) {
+            validateNonNegativeScore(team1PenaltyScore, "팀1 승부차기 점수");
+            validateNonNegativeScore(team2PenaltyScore, "팀2 승부차기 점수");
         }
 
         this.team1Score = team1Score;
@@ -330,8 +347,17 @@ public class TournamentMatch {
      * 경기 일정 업데이트
      */
     public void updateSchedule(LocalDateTime scheduledAt, String venueName) {
+        if (status != MatchStatus.SCHEDULED) {
+            throw new IllegalStateException("시작 전 예정된 경기만 일정을 변경할 수 있습니다.");
+        }
         this.scheduledAt = scheduledAt;
         this.venueName = venueName;
+    }
+
+    private void validateNonNegativeScore(Integer score, String fieldName) {
+        if (score != null && score < 0) {
+            throw new IllegalStateException(fieldName + "는 음수일 수 없습니다.");
+        }
     }
 
     /**

@@ -90,6 +90,9 @@ public class TournamentParticipant {
      * 참가 취소
      */
     public void withdraw() {
+        if (this.status != ParticipantStatus.CONFIRMED) {
+            throw new IllegalStateException("참가 확정 상태에서만 취소할 수 있습니다.");
+        }
         this.status = ParticipantStatus.WITHDRAWN;
     }
 }

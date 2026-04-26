@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @Table(name = "tournament_results",
     uniqueConstraints = {
         @UniqueConstraint(columnNames = {"tournament_id", "team_id"}),
-        @UniqueConstraint(columnNames = {"tournament_id", "rank"})
+        @UniqueConstraint(columnNames = {"tournament_id", "`rank`"})
     })
 @Getter
 @Setter
@@ -40,7 +40,7 @@ public class TournamentResult {
     /**
      * 순위 (1 = 우승, 2 = 준우승, 3 = 3위, 4 = 4위)
      */
-    @Column(name = "rank", nullable = false)
+    @Column(name = "`rank`", nullable = false)
     private Integer rank;
 
     /**
