@@ -12,13 +12,11 @@ COPY src ./src
 RUN gradle bootJar --no-daemon -x test
 
 # Run stage
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:17-jre
 WORKDIR /app
 
 # 타임존 설정
-RUN apk add --no-cache tzdata && \
-    cp /usr/share/zoneinfo/Asia/Seoul /etc/localtime && \
-    echo "Asia/Seoul" > /etc/timezone
+ENV TZ=Asia/Seoul
 
 # JAR 파일 복사
 COPY --from=build /app/build/libs/*.jar app.jar
