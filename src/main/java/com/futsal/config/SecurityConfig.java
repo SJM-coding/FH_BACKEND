@@ -78,6 +78,8 @@ public class SecurityConfig {
                 if (isLocal) {
                     auth.requestMatchers("/h2-console/**").permitAll();
                 }
+                // 관리자 전용 API
+                auth.requestMatchers("/api/admin/**").hasRole("ADMIN");
                 // 대회 생성/수정/삭제 - ORGANIZER, ADMIN만 허용
                 auth.requestMatchers(HttpMethod.POST, "/api/tournaments").hasAnyRole("ORGANIZER", "ADMIN");
                 auth.requestMatchers(HttpMethod.PUT, "/api/tournaments/**").hasAnyRole("ORGANIZER", "ADMIN");
