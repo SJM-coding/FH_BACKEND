@@ -15,6 +15,7 @@ import com.futsal.tournament.infrastructure.TournamentRepository;
 import com.futsal.user.domain.User;
 import com.futsal.user.domain.UserAward;
 import com.futsal.user.infrastructure.UserAwardRepository;
+import com.futsal.user.infrastructure.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -43,6 +44,7 @@ public class BracketCommandService {
   private final TeamAwardRepository teamAwardRepository;
   private final UserAwardRepository userAwardRepository;
   private final TournamentParticipantMemberRepository participantMemberRepository;
+  private final UserRepository userRepository;
 
   // ── 경기 일정 ──────────────────────────────────────────────────────
 
@@ -221,6 +223,8 @@ public class BracketCommandService {
     }
     if (teamRanks.isEmpty()) return;
 
+    User organizer = loadOrganizer(tournament);
+
     for (Map.Entry<Long, Integer> entry : teamRanks.entrySet()) {
       Long teamId = entry.getKey();
       int rank = entry.getValue();
@@ -246,8 +250,8 @@ public class BracketCommandService {
                 .userId(m.getUserId())
                 .teamId(team.getId())
                 .teamName(team.getName())
-                .organizerUserId(tournament.getRegisteredBy().getId())
-                .organizerName(tournament.getRegisteredBy().getNickname())
+                .organizerUserId(organizer.getId())
+                .organizerName(organizer.getNickname())
                 .tournamentId(tournament.getId())
                 .tournamentName(tournament.getTitle())
                 .awardType(awardType)
@@ -258,8 +262,17 @@ public class BracketCommandService {
 
         log.info("수상 경력 자동 저장: tournamentId={}, teamId={}, rank={}",
             tournament.getId(), teamId, rank);
-      });
+        });
     }
+  }
+
+  private User loadOrganizer(Tournament tournament) {
+    Long organizerId = tournament.getRegisteredById();
+    if (organizerId == null) {
+      throw new RuntimeException("대회 등록자 정보를 찾을 수 없습니다.");
+    }
+    return userRepository.findById(organizerId)
+        .orElseThrow(() -> new RuntimeException("대회 등록자 정보를 찾을 수 없습니다."));
   }
 
   // ── 진출팀 선택 ────────────────────────────────────────────────────

@@ -113,13 +113,13 @@ public class ParticipantService {
 
         // 참가 시점 팀원 스냅샷 저장 — 이후 팀 구성 변경과 무관하게 이력 보존
         List<TeamMember> activeMembers = teamMemberRepository
-            .findByTeamIdAndStatusWithUser(teamId, TeamMemberStatus.ACTIVE);
+            .findByTeamAndStatus(team, TeamMemberStatus.ACTIVE);
         List<TournamentParticipantMember> snapshots = activeMembers.stream()
             .map(m -> TournamentParticipantMember.builder()
                 .tournamentParticipantId(saved.getId())
                 .tournamentId(tournament.getId())
                 .teamId(teamId)
-                .userId(m.getUser().getId())
+                .userId(m.getUserId())
                 .build())
             .toList();
         participantMemberRepository.saveAll(snapshots);

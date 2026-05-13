@@ -21,6 +21,7 @@ import com.futsal.tournament.infrastructure.TournamentRepository;
 import com.futsal.tournament.infrastructure.TournamentResultRepository;
 import com.futsal.team.infrastructure.TeamAwardRepository;
 import com.futsal.user.domain.User;
+import com.futsal.user.infrastructure.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -47,6 +48,7 @@ public class TournamentService {
     private final TournamentGroupRepository groupRepository;
     private final TeamAwardRepository teamAwardRepository;
     private final TournamentViewCountService tournamentViewCountService;
+    private final UserRepository userRepository;
     private final String defaultPosterUrl;
 
     public TournamentService(TournamentRepository tournamentRepository,
@@ -57,6 +59,7 @@ public class TournamentService {
                              TournamentGroupRepository groupRepository,
                              TeamAwardRepository teamAwardRepository,
                              TournamentViewCountService tournamentViewCountService,
+                             UserRepository userRepository,
                              @Value("${app.poster.default-url:}") String defaultPosterUrl) {
         this.tournamentRepository = tournamentRepository;
         this.bracketRepository = bracketRepository;
@@ -66,6 +69,7 @@ public class TournamentService {
         this.groupRepository = groupRepository;
         this.teamAwardRepository = teamAwardRepository;
         this.tournamentViewCountService = tournamentViewCountService;
+        this.userRepository = userRepository;
         this.defaultPosterUrl = defaultPosterUrl;
     }
 
@@ -75,10 +79,10 @@ public class TournamentService {
     @Transactional
     public TournamentResponse createTournament(TournamentCreateRequest request, User registeredBy) {
         // 중복 대회 체크
-        if (tournamentRepository.existsByTitleAndTournamentDateAndRegisteredBy(
+        if (tournamentRepository.existsByTitleAndTournamentDateAndRegisteredByUserId(
                 request.getTitle(),
                 request.getTournamentDate(),
-                registeredBy)) {
+                registeredBy.getId())) {
             throw new IllegalArgumentException("동일한 제목과 날짜의 대회가 이미 등록되어 있습니다.");
         }
 
@@ -133,7 +137,7 @@ public class TournamentService {
                 .externalUrl(request.getExternalUrl())
                 .allowJoin(allowJoin)
                 .shareCode(shareCode)
-                .registeredBy(registeredBy)
+                .registeredByUserId(registeredBy.getId())
                 .build();
 
         Tournament saved = tournamentRepository.save(tournament);
@@ -222,21 +226,19 @@ public class TournamentService {
      */
     @Transactional(readOnly = true)
     public List<TournamentListResponse> getMyTournaments(User user) {
-        List<Tournament> tournaments = tournamentRepository.findListByRegisteredBy(user);
-        List<TournamentListResponse> responses = tournaments.stream()
-            .map(this::toListResponse)
-            .collect(Collectors.toList());
-        populatePosterUrls(responses);
-        populateParticipantSummaries(responses, tournaments);
-        return responses;
+        List<Tournament> tournaments = tournamentRepository.findListByRegisteredByUserId(user.getId());
+        return buildTournamentListResponses(tournaments);
     }
 
     /**
      * Tournament 엔티티 → TournamentListResponse 변환
      * posterUrl은 별도로 populatePosterUrls 에서 채워진다.
      */
-    private TournamentListResponse toListResponse(Tournament t) {
-        com.futsal.user.domain.User owner = t.getRegisteredBy();
+    private TournamentListResponse toListResponse(
+        Tournament t,
+        java.util.Map<Long, User> organizerMap
+    ) {
+        User owner = organizerMap.get(t.getRegisteredById());
         boolean isNew = isNewTournament(t);
         return new TournamentListResponse(
             t.getId(),
@@ -305,10 +307,10 @@ public class TournamentService {
                 bracket.getImageUrls(),
                 tournament.getPosterUrls() != null ? tournament.getPosterUrls() : new ArrayList<>(),
                 tournament.getRecruitmentStatus(),
-                tournament.getRegisteredBy() != null ? tournament.getRegisteredBy().getId() : null,
-                tournament.getRegisteredBy() != null ? tournament.getRegisteredBy().getNickname() : null,
-                tournament.getRegisteredBy() != null ? tournament.getRegisteredBy().getRole().name() : null,
-                tournament.getRegisteredBy() != null ? tournament.getRegisteredBy().isVerified() : false,
+                tournament.getRegisteredById(),
+                null,
+                null,
+                false,
                 tournament.getCreatedAt(),
                 tournament.getIsExternal(),
                 tournament.getExternalUrl(),
@@ -318,6 +320,7 @@ public class TournamentService {
                 tournament.getParticipantCode(),
                 tournament.getStaffCode()
         );
+        applyOrganizerDetails(response, resolveUserMap(List.of(tournament)).get(tournament.getRegisteredById()));
         enrichParticipantSummary(response, tournament, getConfirmedParticipantCount(tournament.getId()));
         return response;
     }
@@ -364,11 +367,7 @@ public class TournamentService {
             gender, playerType, status, getNewTournamentThreshold(), PageRequest.of(page, size)
         );
 
-        List<TournamentListResponse> content = result.getContent().stream()
-            .map(this::toListResponse)
-            .collect(Collectors.toList());
-        populatePosterUrls(content);
-        populateParticipantSummaries(content, result.getContent());
+        List<TournamentListResponse> content = buildTournamentListResponses(result.getContent());
 
         return new TournamentPageResponse(content, result.hasNext(), result.getTotalElements());
     }
@@ -382,11 +381,7 @@ public class TournamentService {
             keyword, getNewTournamentThreshold(), PageRequest.of(page, size)
         );
 
-        List<TournamentListResponse> content = result.getContent().stream()
-            .map(this::toListResponse)
-            .collect(Collectors.toList());
-        populatePosterUrls(content);
-        populateParticipantSummaries(content, result.getContent());
+        List<TournamentListResponse> content = buildTournamentListResponses(result.getContent());
 
         return new TournamentPageResponse(content, result.hasNext(), result.getTotalElements());
     }
@@ -397,11 +392,7 @@ public class TournamentService {
     @Transactional(readOnly = true)
     public List<TournamentListResponse> getAllTournaments() {
         List<Tournament> tournaments = tournamentRepository.findListAll();
-        List<TournamentListResponse> responses = tournaments.stream()
-            .map(this::toListResponse)
-            .collect(Collectors.toList());
-        populateParticipantSummaries(responses, tournaments);
-        return responses;
+        return buildTournamentListResponses(tournaments);
     }
 
     /**
@@ -458,6 +449,21 @@ public class TournamentService {
         resultRepository.deleteByTournamentId(id);
         bracketRepository.deleteByTournamentId(id);
         tournamentRepository.deleteById(id);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TournamentListResponse> buildTournamentListResponses(List<Tournament> tournaments) {
+        if (tournaments == null || tournaments.isEmpty()) {
+            return List.of();
+        }
+
+        java.util.Map<Long, User> organizerMap = resolveUserMap(tournaments);
+        List<TournamentListResponse> responses = tournaments.stream()
+            .map(tournament -> toListResponse(tournament, organizerMap))
+            .collect(Collectors.toList());
+        populatePosterUrls(responses);
+        populateParticipantSummaries(responses, tournaments);
+        return responses;
     }
 
     @SuppressWarnings("unchecked")
@@ -527,6 +533,30 @@ public class TournamentService {
             long confirmedCount = confirmedCountMap.getOrDefault(response.getId(), 0L);
             enrichParticipantSummary(response, tournament, confirmedCount);
         }
+    }
+
+    private java.util.Map<Long, User> resolveUserMap(List<Tournament> tournaments) {
+        List<Long> organizerIds = tournaments.stream()
+            .map(Tournament::getRegisteredById)
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .collect(Collectors.toList());
+
+        if (organizerIds.isEmpty()) {
+            return java.util.Map.of();
+        }
+
+        return userRepository.findAllById(organizerIds).stream()
+            .collect(Collectors.toMap(User::getId, user -> user));
+    }
+
+    private void applyOrganizerDetails(TournamentResponse response, User organizer) {
+        if (response == null || organizer == null) {
+            return;
+        }
+        response.setRegisteredByName(organizer.getNickname());
+        response.setRegisteredByRole(organizer.getRole() != null ? organizer.getRole().name() : null);
+        response.setOrganizerVerified(organizer.isVerified());
     }
 
     private void enrichParticipantSummary(

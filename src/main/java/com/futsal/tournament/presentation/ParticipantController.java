@@ -155,23 +155,7 @@ public class ParticipantController {
         }
 
         List<Tournament> tournaments = participantService.getMyParticipatedTournaments(user.getId());
-        List<TournamentListResponse> responses = tournaments.stream()
-                .map(t -> new TournamentListResponse(
-                        t.getId(),
-                        t.getTitle(),
-                        t.getTournamentDate(),
-                        t.getLocation(),
-                        t.getRecruitmentStatus(),
-                        t.getPosterUrls() != null && !t.getPosterUrls().isEmpty() ? t.getPosterUrls().get(0) : null,
-                        t.getRegisteredBy() != null ? t.getRegisteredBy().getNickname() : null,
-                        t.getRegisteredBy() != null ? t.getRegisteredBy().getProfileImageUrl() : null,
-                        t.getGender(),
-                        t.getPlayerType(),
-                        t.getIsExternal(),
-                        t.getRegisteredBy() != null ? t.getRegisteredBy().getVerificationStatus() : null,
-                        false
-                ))
-                .collect(Collectors.toList());
+        List<TournamentListResponse> responses = tournamentService.buildTournamentListResponses(tournaments);
         return ResponseEntity.ok(responses);
     }
 }

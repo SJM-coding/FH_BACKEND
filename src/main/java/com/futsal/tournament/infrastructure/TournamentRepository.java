@@ -3,7 +3,6 @@ package com.futsal.tournament.infrastructure;
 import com.futsal.tournament.domain.Gender;
 import com.futsal.tournament.domain.PlayerType;
 import com.futsal.tournament.domain.Tournament;
-import com.futsal.user.domain.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -24,12 +23,10 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
 
   /**
    * 페이지네이션 + 필터 + 서버 정렬 (진행중 > 모집중 > 예정 > 종료)
-   * registeredBy를 FETCH JOIN 해서 N+1 방지
    */
   @Query(value = """
       SELECT t
       FROM Tournament t
-      LEFT JOIN FETCH t.registeredBy u
       WHERE (:gender IS NULL OR t.gender = :gender)
         AND (:playerType IS NULL OR t.playerType = :playerType)
         AND (:recruitmentStatus IS NULL OR t.recruitmentStatus = :recruitmentStatus)
@@ -90,7 +87,6 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
   @Query(value = """
       SELECT t
       FROM Tournament t
-      LEFT JOIN FETCH t.registeredBy
       WHERE t.title LIKE CONCAT('%', :keyword, '%')
          OR t.location LIKE CONCAT('%', :keyword, '%')
       ORDER BY
@@ -151,7 +147,6 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
   @Query("""
       SELECT t
       FROM Tournament t
-      LEFT JOIN FETCH t.registeredBy
       ORDER BY t.tournamentDate ASC
       """)
   List<Tournament> findListAll();
@@ -162,11 +157,10 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
   @Query("""
       SELECT t
       FROM Tournament t
-      LEFT JOIN FETCH t.registeredBy
-      WHERE t.registeredBy = :registeredBy
+      WHERE t.registeredByUserId = :registeredByUserId
       ORDER BY t.createdAt DESC
       """)
-  List<Tournament> findListByRegisteredBy(@Param("registeredBy") User registeredBy);
+  List<Tournament> findListByRegisteredByUserId(@Param("registeredByUserId") Long registeredByUserId);
 
   @Query("SELECT CASE WHEN COUNT(t) > 0 THEN true ELSE false END " +
          "FROM Tournament t WHERE t.shareCode.participantCode = :code")
@@ -190,10 +184,10 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
   @Query("SELECT t FROM Tournament t WHERE t.shareCode.staffCode = :code")
   java.util.Optional<Tournament> findByStaffCode(@Param("code") String staffCode);
 
-  boolean existsByTitleAndTournamentDateAndRegisteredBy(
+  boolean existsByTitleAndTournamentDateAndRegisteredByUserId(
       String title,
       LocalDate tournamentDate,
-      User registeredBy
+      Long registeredByUserId
   );
 
   @Modifying

@@ -16,6 +16,7 @@ import com.futsal.tournament.infrastructure.TournamentResultRepository;
 import com.futsal.user.domain.User;
 import com.futsal.user.domain.UserAward;
 import com.futsal.user.infrastructure.UserAwardRepository;
+import com.futsal.user.infrastructure.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +39,7 @@ public class TournamentResultService {
     private final TeamAwardRepository teamAwardRepository;
     private final TournamentParticipantMemberRepository participantMemberRepository;
     private final UserAwardRepository userAwardRepository;
+    private final UserRepository userRepository;
 
     /**
      * 대회 결과 입력 (개최자만 가능)
@@ -61,6 +63,8 @@ public class TournamentResultService {
         }
 
         List<TournamentResult> results = new ArrayList<>();
+        User organizer = userRepository.findById(tournament.getRegisteredById())
+                .orElseThrow(() -> new RuntimeException("대회 등록자 정보를 찾을 수 없습니다."));
 
         for (TournamentResultRequest.TeamRank teamRank : request.getResults()) {
             Team team = teamRepository.findById(teamRank.getTeamId())
@@ -98,8 +102,8 @@ public class TournamentResultService {
                     .userId(m.getUserId())
                     .teamId(team.getId())
                     .teamName(team.getName())
-                    .organizerUserId(tournament.getRegisteredBy().getId())
-                    .organizerName(tournament.getRegisteredBy().getNickname())
+                    .organizerUserId(organizer.getId())
+                    .organizerName(organizer.getNickname())
                     .tournamentId(tournamentId)
                     .tournamentName(tournament.getTitle())
                     .awardType(awardType)

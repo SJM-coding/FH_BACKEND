@@ -7,7 +7,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-import com.futsal.user.domain.User;
 import com.futsal.tournament.infrastructure.StringListConverter;
 import org.springframework.data.domain.AbstractAggregateRoot;
 
@@ -105,9 +104,8 @@ public class Tournament extends AbstractAggregateRoot<Tournament> {
     @Column(length = 500)
     private String externalUrl;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
-    private User registeredBy; // 등록자
+    @Column(name = "user_id", nullable = false)
+    private Long registeredByUserId; // 등록자
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -133,11 +131,11 @@ public class Tournament extends AbstractAggregateRoot<Tournament> {
      * 등록자 확인
      */
     public boolean isRegisteredBy(Long userId) {
-        return this.registeredBy != null && this.registeredBy.getId().equals(userId);
+        return this.registeredByUserId != null && this.registeredByUserId.equals(userId);
     }
 
     public Long getRegisteredById() {
-        return this.registeredBy != null ? this.registeredBy.getId() : null;
+        return this.registeredByUserId;
     }
 
     /**

@@ -76,7 +76,7 @@ public class TeamService {
         
         TeamMember captainMember = TeamMember.builder()
                 .team(savedTeam)
-                .user(captain)
+                .userId(captain.getId())
                 .role(TeamMemberRole.CAPTAIN)
                 .status(TeamMemberStatus.ACTIVE)
                 .position(PlayerPosition.NONE)
@@ -93,8 +93,8 @@ public class TeamService {
     @Transactional(readOnly = true)
     public List<TeamResponse> getMyTeams(User user) {
         // 1. Team을 JOIN FETCH로 한 번에 조회
-        List<TeamMember> myMemberships = teamMemberRepository.findByUserAndStatusWithTeam(
-                user,
+        List<TeamMember> myMemberships = teamMemberRepository.findByUserIdAndStatusWithTeam(
+                user.getId(),
                 TeamMemberStatus.ACTIVE
         );
 
@@ -162,13 +162,21 @@ public class TeamService {
             throw new RuntimeException("팀을 찾을 수 없습니다: " + teamId);
         }
         
-        List<TeamMember> members = teamMemberRepository.findByTeamIdAndStatusWithUser(
-                teamId,
+        List<TeamMember> members = teamMemberRepository.findByTeamAndStatus(
+                teamRepository.getReferenceById(teamId),
                 TeamMemberStatus.ACTIVE
         );
-        
+
+        Map<Long, User> userMap = buildUserMap(
+                members.stream()
+                        .map(TeamMember::getUserId)
+                        .filter(Objects::nonNull)
+                        .distinct()
+                        .collect(Collectors.toList())
+        );
+
         return members.stream()
-                .map(this::toMemberResponse)
+                .map(member -> toMemberResponse(member, userMap.get(member.getUserId())))
                 .collect(Collectors.toList());
     }
 
@@ -235,7 +243,7 @@ public class TeamService {
             throw new RuntimeException("팀장은 팀을 탈퇴할 수 없습니다. 팀을 삭제하거나 팀장을 위임하세요.");
         }
         
-        TeamMember member = teamMemberRepository.findByTeamAndUser(team, user)
+        TeamMember member = teamMemberRepository.findByTeamAndUserId(team, user.getId())
                 .orElseThrow(() -> new RuntimeException("팀원이 아닙니다"));
         
         teamMemberRepository.delete(member);
@@ -297,7 +305,7 @@ public class TeamService {
             throw new IllegalStateException("대회 참가 중인 팀에는 새로운 멤버가 합류할 수 없습니다.");
         }
 
-        Optional<TeamMember> existingMember = teamMemberRepository.findByTeamAndUser(team, user);
+        Optional<TeamMember> existingMember = teamMemberRepository.findByTeamAndUserId(team, user.getId());
         if (existingMember.isPresent()) {
             if (existingMember.get().getStatus() == TeamMemberStatus.ACTIVE) {
                 throw new RuntimeException("이미 팀에 가입되어 있습니다");
@@ -306,7 +314,7 @@ public class TeamService {
         
         TeamMember newMember = TeamMember.builder()
                 .team(team)
-                .user(user)
+                .userId(user.getId())
                 .role(TeamMemberRole.MEMBER)
                 .status(TeamMemberStatus.ACTIVE)
                 .position(PlayerPosition.NONE)
@@ -356,8 +364,10 @@ public class TeamService {
         
         member.updatePosition(request.getPosition());
         TeamMember updated = teamMemberRepository.save(member);
-        
-        return toMemberResponse(updated);
+
+        User memberUser = userRepository.findById(updated.getUserId())
+                .orElse(null);
+        return toMemberResponse(updated, memberUser);
     }
 
     /**
@@ -483,12 +493,12 @@ public class TeamService {
         );
     }
 
-    private TeamMemberResponse toMemberResponse(TeamMember member) {
+    private TeamMemberResponse toMemberResponse(TeamMember member, User user) {
         return new TeamMemberResponse(
                 member.getId(),
-                member.getUser().getId(),
-                member.getUser().getNickname(),
-                member.getUser().getProfileImageUrl(),
+                member.getUserId(),
+                user != null ? user.getNickname() : null,
+                user != null ? user.getProfileImageUrl() : null,
                 member.getRole(),
                 member.getStatus(),
                 member.getPosition(),
@@ -513,6 +523,14 @@ public class TeamService {
         userRepository.findAllById(captainUserIds)
                 .forEach(user -> map.put(user.getId(), user.getNickname()));
         return map;
+    }
+
+    private Map<Long, User> buildUserMap(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Map.of();
+        }
+        return userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getId, user -> user));
     }
 
     private TacticsResponse toTacticsResponse(TeamTactics tactics) {

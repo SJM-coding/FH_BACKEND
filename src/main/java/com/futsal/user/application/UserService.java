@@ -93,7 +93,7 @@ public class UserService {
         teamMemberRepository.deleteByUserId(userId);
 
         // 3. 사용자가 만든 대회와 해당 대회의 모든 하위 데이터 삭제
-        tournamentRepository.findListByRegisteredBy(user).forEach(tournament -> {
+        tournamentRepository.findListByRegisteredByUserId(userId).forEach(tournament -> {
             Long tid = tournament.getId();
             userAwardRepository.deleteByTournamentId(tid);
             teamAwardRepository.deleteByTournamentId(tid);
