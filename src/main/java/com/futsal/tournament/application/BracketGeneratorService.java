@@ -30,6 +30,84 @@ public class BracketGeneratorService {
     private final BracketRepository bracketRepository;
 
     /**
+     * AI 파싱 결과 기반 조별 대진표 생성.
+     *
+     * <p>운영자가 확인한 조별 팀 배정(groupId → teamId 목록)으로
+     * TournamentGroup과 라운드로빈 TournamentMatch를 생성한다.
+     * 기존 그룹/경기 데이터는 초기화 후 재생성된다.
+     *
+     * @param tournamentId   대회 ID
+     * @param teamIdsByGroup 조 이름 → 팀 ID 목록 (예: {"A": [1,2,3], "B": [4,5,6]})
+     */
+    @Transactional
+    public void generateFromGroupAssignments(
+        Long tournamentId, Map<String, List<Long>> teamIdsByGroup
+    ) {
+        Tournament tournament = tournamentRepository.findById(tournamentId)
+            .orElseThrow(() -> new RuntimeException(
+                "대회를 찾을 수 없습니다: " + tournamentId));
+
+        // 기존 그룹/경기 초기화
+        groupRepository.deleteByTournamentId(tournamentId);
+        matchRepository.deleteByTournamentId(tournamentId);
+
+        List<TournamentGroup> newGroups = new ArrayList<>();
+        List<TournamentMatch> newMatches = new ArrayList<>();
+        int matchNumber = 1;
+
+        List<String> sortedGroupIds = new ArrayList<>(teamIdsByGroup.keySet());
+        Collections.sort(sortedGroupIds);
+
+        for (int i = 0; i < sortedGroupIds.size(); i++) {
+            String groupName = sortedGroupIds.get(i);
+            List<Long> teamIds = teamIdsByGroup.get(groupName);
+
+            TournamentGroup group = TournamentGroup.builder()
+                .tournamentId(tournamentId)
+                .groupName(groupName)
+                .groupOrder(i + 1)
+                .build();
+
+            Map<Long, Team> teamMap = teamRepository.findAllById(teamIds).stream()
+                .collect(java.util.stream.Collectors.toMap(Team::getId, t -> t));
+
+            List<Team> groupTeams = new ArrayList<>();
+            for (Long teamId : teamIds) {
+                Team team = teamMap.get(teamId);
+                if (team != null) {
+                    group.addTeamId(teamId);
+                    groupTeams.add(team);
+                }
+            }
+            newGroups.add(group);
+
+            matchNumber = addRoundRobinMatches(
+                newMatches, tournamentId, group, groupTeams, matchNumber);
+        }
+
+        // GROUP_STAGE: selectQualifiers가 참조할 빈 결선 매치 미리 생성
+        if (tournament.getTournamentType() == TournamentType.GROUP_STAGE) {
+            int advanceCount = tournament.getAdvanceCount() != null
+                ? tournament.getAdvanceCount() : 2;
+            newMatches.addAll(buildEmptyKnockoutMatches(
+                tournament, newGroups.size(), advanceCount));
+        }
+
+        groupRepository.saveAll(newGroups);
+        matchRepository.saveAll(newMatches);
+
+        Bracket bracket = bracketRepository.findByTournamentId(tournamentId)
+            .orElseGet(() -> Bracket.createDefault(tournamentId));
+        // 이미지 업로드(MANUAL) 상태였더라도 AUTO로 전환하고 생성 완료 처리
+        bracket.switchToAuto();
+        bracket.markGenerated();
+        bracketRepository.save(bracket);
+
+        log.info("AI 파싱 조별 대진표 생성 완료: tournamentId={}, 조={}개, 경기={}개",
+            tournamentId, newGroups.size(), newMatches.size());
+    }
+
+    /**
      * 대진표 생성 (참가 팀 기반)
      */
     @Transactional
@@ -254,23 +332,8 @@ public class BracketGeneratorService {
             }
             newGroups.add(group);
 
-            // 조 내 라운드 로빈 경기 생성
-            for (int a = 0; a < groupTeams.size(); a++) {
-                for (int b = a + 1; b < groupTeams.size(); b++) {
-                    TournamentMatch match = TournamentMatch.builder()
-                            .tournamentId(tournament.getId())
-                            .round(1)
-                            .matchNumber(matchNumber++)
-                            .groupId(group.getGroupName())
-                            .status(TournamentMatch.MatchStatus.SCHEDULED)
-                            .build();
-                    Team ta = groupTeams.get(a);
-                    Team tb = groupTeams.get(b);
-                    match.assignTeam1(ta.getId(), ta.getName(), ta.getLogoUrl());
-                    match.assignTeam2(tb.getId(), tb.getName(), tb.getLogoUrl());
-                    newMatches.add(match);
-                }
-            }
+            matchNumber = addRoundRobinMatches(
+                newMatches, tournament.getId(), group, groupTeams, matchNumber);
         }
 
         log.info("조별리그 총 {}경기 생성", matchNumber - 1);
@@ -281,6 +344,36 @@ public class BracketGeneratorService {
 
         groupRepository.saveAll(newGroups);
         matchRepository.saveAll(newMatches);
+    }
+
+    /**
+     * 조 내 라운드로빈 경기를 생성해 결과 리스트에 추가하고 다음 matchNumber를 반환한다.
+     */
+    private int addRoundRobinMatches(
+        List<TournamentMatch> matches,
+        Long tournamentId,
+        TournamentGroup group,
+        List<Team> groupTeams,
+        int startMatchNumber
+    ) {
+        int matchNumber = startMatchNumber;
+        for (int a = 0; a < groupTeams.size(); a++) {
+            for (int b = a + 1; b < groupTeams.size(); b++) {
+                TournamentMatch match = TournamentMatch.builder()
+                    .tournamentId(tournamentId)
+                    .round(1)
+                    .matchNumber(matchNumber++)
+                    .groupId(group.getGroupName())
+                    .status(TournamentMatch.MatchStatus.SCHEDULED)
+                    .build();
+                Team ta = groupTeams.get(a);
+                Team tb = groupTeams.get(b);
+                match.assignTeam1(ta.getId(), ta.getName(), ta.getLogoUrl());
+                match.assignTeam2(tb.getId(), tb.getName(), tb.getLogoUrl());
+                matches.add(match);
+            }
+        }
+        return matchNumber;
     }
 
     /**
