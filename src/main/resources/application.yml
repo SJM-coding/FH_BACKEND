@@ -28,6 +28,12 @@ spring:
 server:
   port: 8080
 
+modal:
+  parser:
+    # modal deploy 후 발급되는 URL로 교체
+    parse-url: ${MODAL_PARSE_URL:https://placeholder.modal.run/parse-excel}
+    warmup-url: ${MODAL_WARMUP_URL:https://placeholder.modal.run/warmup}
+
 app:
   base-url: ${APP_BASE_URL:https://www.amfutsalhub.com}
   poster:

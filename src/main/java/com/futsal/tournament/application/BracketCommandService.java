@@ -496,6 +496,46 @@ public class BracketCommandService {
     return bracketQueryService.getBracket(tournamentId);
   }
 
+  // ── AI 파싱 결과 저장 ──────────────────────────────────────────────
+
+  /**
+   * AI가 파싱한 대진표 데이터를 경기 기록으로 저장한다.
+   *
+   * <p>기존 경기 기록을 삭제하고 파싱 결과로 재생성한다.
+   * 이미지 업로드(BracketImageService)와 별도로 호출되며,
+   * 팀 ID가 매핑된 경기만 저장한다.
+   *
+   * @param tournamentId 대회 ID
+   * @param matches      AI 파싱 후 운영자가 확정한 경기 목록
+   */
+  @Transactional
+  public void saveParsedBracket(
+      Long tournamentId, List<ParsedMatchDto> matches
+  ) {
+    findTournament(tournamentId); // 대회 존재 확인
+
+    // 기존 경기 기록 초기화
+    matchRepository.deleteByTournamentId(tournamentId);
+
+    List<TournamentMatch> toSave = matches.stream()
+        .filter(m -> m.getTeam1Id() != null && m.getTeam2Id() != null)
+        .map(m -> TournamentMatch.builder()
+            .tournamentId(tournamentId)
+            .round(m.getRound() != null ? m.getRound() : 1)
+            .matchNumber(m.getMatchNumber() != null ? m.getMatchNumber() : 1)
+            .groupId(m.getGroupId())
+            .team1Id(m.getTeam1Id())
+            .team1Name(m.getTeam1Name())
+            .team2Id(m.getTeam2Id())
+            .team2Name(m.getTeam2Name())
+            .build())
+        .toList();
+
+    matchRepository.saveAll(toSave);
+    log.info("AI 파싱 대진표 저장: tournamentId={}, matchCount={}",
+        tournamentId, toSave.size());
+  }
+
   // ── 내부 도우미 ────────────────────────────────────────────────────
 
   private void advanceWinnerToNextRound(TournamentMatch match) {

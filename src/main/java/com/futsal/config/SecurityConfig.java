@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -26,6 +27,7 @@ import java.util.Arrays;
  */
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -78,6 +80,8 @@ public class SecurityConfig {
                 if (isLocal) {
                     auth.requestMatchers("/h2-console/**").permitAll();
                 }
+                auth.requestMatchers("/api/tournaments/*/bracket-image/**").hasRole("ADMIN");
+                auth.requestMatchers("/api/tournaments/*/schedule-image/**").hasRole("ADMIN");
                 // 관리자 전용 API
                 auth.requestMatchers("/api/admin/**").hasRole("ADMIN");
                 // 대회 생성/수정/삭제 - ORGANIZER, ADMIN만 허용
