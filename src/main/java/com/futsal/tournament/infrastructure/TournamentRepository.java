@@ -93,6 +93,7 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
       LEFT JOIN FETCH t.registeredBy
       WHERE t.title LIKE CONCAT('%', :keyword, '%')
          OR t.location LIKE CONCAT('%', :keyword, '%')
+         OR t.description LIKE CONCAT('%', :keyword, '%')
       ORDER BY
           CASE
               WHEN t.isExternal = false
@@ -132,6 +133,7 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
       FROM Tournament t
       WHERE t.title LIKE CONCAT('%', :keyword, '%')
          OR t.location LIKE CONCAT('%', :keyword, '%')
+         OR t.description LIKE CONCAT('%', :keyword, '%')
       """)
   Page<Tournament> findPagedByKeyword(
       @Param("keyword") String keyword,
